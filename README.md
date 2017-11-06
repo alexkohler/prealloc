@@ -29,8 +29,6 @@ $ prealloc
 ```
 
 
-```
-
 ## Contributing
 
 Pull requests welcome!
