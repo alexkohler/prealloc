@@ -1,4 +1,4 @@
-# prealloc
+# prealloc (work in progress)
 
 prealloc is a Go static analysis tool to find slice declarations that could potentially be preallocated.
 
@@ -26,6 +26,7 @@ If the size of a slice is known at its creation time, it should be specified, as
 
 ```Bash
 $ prealloc
+//TODO
 ```
 
 

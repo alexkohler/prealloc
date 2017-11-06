@@ -14,7 +14,11 @@ import (
 	"strings"
 )
 
-//TODO ensure there are prellocations in the make - (type, size, cap)
+// Support: (in order of priority)
+//  * Are we detecting multiple declarations on same line? (e.g. var mySlice1, mySlice2 []sliceType)
+//	* Test flag
+//  * Embedded ifs?
+
 // then see the append lines up with the preallocate
 const (
 	pwd = "./"
