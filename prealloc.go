@@ -15,7 +15,8 @@ import (
 )
 
 // Support: (in order of priority)
-//  * Are we detecting multiple declarations on same line? (e.g. var mySlice1, mySlice2 []sliceType)
+//  * Full make suggestion with type?
+//  * Support for loops
 //	* Test flag
 //  * Embedded ifs?
 
@@ -31,8 +32,8 @@ func init() {
 
 func usage() {
 	log.Printf("Usage of %s:\n", os.Args[0])
-	log.Printf("\nnakedret [flags] # runs on package in current directory\n")
-	log.Printf("\nnakedret [flags] [packages]\n")
+	log.Printf("\nprealloc [flags] # runs on package in current directory\n")
+	log.Printf("\nprealloc [flags] [packages]\n")
 	log.Printf("Flags:\n")
 	flag.PrintDefaults()
 }
@@ -51,12 +52,12 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if err := checkNakedReturns(flag.Args(), maxLength); err != nil {
+	if err := checkForPreallocations(flag.Args(), maxLength); err != nil {
 		log.Println(err)
 	}
 }
 
-func checkNakedReturns(args []string, maxLength *uint) error {
+func checkForPreallocations(args []string, maxLength *uint) error {
 
 	fset := token.NewFileSet()
 
@@ -177,11 +178,11 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	type sliceDeclaration struct {
 		name string
+		// sType string
 		genD *ast.GenDecl
 	}
 
-	var makes []string
-	var genDs []*sliceDeclaration
+	var sliceDeclarations []*sliceDeclaration
 
 	switch n := node.(type) {
 	case *ast.FuncDecl:
@@ -245,19 +246,24 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							if !ok {
 								continue
 							}
-							if _, ok := vSpec.Type.(*ast.ArrayType); ok {
+							if /*arrayType*/ _, ok := vSpec.Type.(*ast.ArrayType); ok {
 								if vSpec.Names != nil {
-									//TODO should we handle multiple names?
-									makes = append(makes, vSpec.Names[0].Name)
-									genDs = append(genDs, &sliceDeclaration{name: vSpec.Names[0].Name, genD: genD})
+									/*atID, ok := arrayType.Elt.(*ast.Ident)
+									if !ok {
+										continue
+									}*/
+
+									// We should handle multiple slices declared on same line e.g. var mySlice1, mySlice2 []uint32
+									for _, vName := range vSpec.Names {
+										sliceDeclarations = append(sliceDeclarations, &sliceDeclaration{name: vName.Name /*sType: atID.Name,*/, genD: genD})
+									}
 								}
 							}
-							// fmt.Printf("%T\n", vSpec.Type)
 						}
 					}
 
 				case *ast.RangeStmt: // for statement should literally duplicate this
-					if len(makes) == 0 {
+					if len(sliceDeclarations) == 0 {
 						continue
 					}
 					if s.Body != nil {
@@ -282,13 +288,19 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 											if !ok {
 												continue
 											}
-											for _, sliceDecl := range genDs {
+											for _, sliceDecl := range sliceDeclarations {
 												if sliceDecl.name == lhsIdent.Name {
 													file := v.f.File(sliceDecl.genD.Pos())
 													lineNumber := file.Position(sliceDecl.genD.Pos()).Line
 													// This is a potential mark, we just need to make sure there are no returns/continues in the
-													// for loop.
-													fmt.Printf("%v:%v Consider preallocating this slice\n", file.Name(), lineNumber)
+													// range loop.
+													// now we just need to grab whatever we're ranging over
+													/*sxIdent, ok := s.X.(*ast.Ident)
+													if !ok {
+														continue
+													}*/
+
+													log.Printf("%v:%v Consider preallocating %v\n", file.Name(), lineNumber, sliceDecl.name)
 												}
 											}
 										}
@@ -326,8 +338,6 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 		return v
 
 	}
-
-	// We've found a function
 
 	return v
 }
