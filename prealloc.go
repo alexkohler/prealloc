@@ -18,6 +18,7 @@ import (
 //  * Not all returns are being caught - see cmd/api/goapi.go:476 for an example - you might want to make this configurable.
 // 			(whether or not to include for loops that have a return in them - and make sure you actually take care of all returns)
 //  * Full make suggestion with type?
+//  * Does this work with slices made of a type exported from another package?
 //  * Support for loops
 //	* Test flag
 //  * Embedded ifs?
