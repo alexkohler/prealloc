@@ -12,7 +12,8 @@ Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can
 
     prealloc [flags] files/directories/packages
 
-Currently, the only flag supported is -tests, which is an optional boolean flag to specify whether or not tests should be included in the analysis.
+### Flags
+- -simple (default true) - Report preallocation suggestions only on simple for loops that have no returns/breaks/continues/gotos in them
 
 ## Purpose
 

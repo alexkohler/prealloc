@@ -18,7 +18,6 @@ import (
 //  * Not all returns are being caught - see cmd/api/goapi.go:476 for an example - you might want to make this configurable.
 // 			(whether or not to include for loops that have a return in them - and make sure you actually take care of all returns)
 //  * Full make suggestion with type?
-//  * Does this work with slices made of a type exported from another package?
 //  * Support for loops
 //	* Test flag
 //  * Embedded ifs?
@@ -42,8 +41,8 @@ func usage() {
 }
 
 type returnsVisitor struct {
-	f         *token.FileSet
-	maxLength uint
+	f      *token.FileSet
+	simple bool
 }
 
 func main() {
@@ -51,16 +50,17 @@ func main() {
 	// Remove log timestamp
 	log.SetFlags(0)
 
-	maxLength := flag.Uint("l", 5, "maximum number of lines for a naked return function")
+	// This is true by default because of stuff like this - vim /home/alex/go1.9.2/src/cmd/cgo/gcc.go +239
+	simple := flag.Bool("simple", true, "Report preallocation suggestions only on simple for loops that have no returns/breaks/continues/gotos in them")
 	flag.Usage = usage
 	flag.Parse()
 
-	if err := checkForPreallocations(flag.Args(), maxLength); err != nil {
+	if err := checkForPreallocations(flag.Args(), simple); err != nil {
 		log.Println(err)
 	}
 }
 
-func checkForPreallocations(args []string, maxLength *uint) error {
+func checkForPreallocations(args []string, simple *bool) error {
 
 	fset := token.NewFileSet()
 
@@ -69,13 +69,13 @@ func checkForPreallocations(args []string, maxLength *uint) error {
 		return fmt.Errorf("could not parse input %v", err)
 	}
 
-	if maxLength == nil {
-		return errors.New("max length nil")
+	if simple == nil {
+		return errors.New("simple nil")
 	}
 
 	retVis := &returnsVisitor{
-		f:         fset,
-		maxLength: *maxLength,
+		f:      fset,
+		simple: *simple,
 	}
 
 	for _, f := range files {
@@ -185,7 +185,11 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 		genD *ast.GenDecl
 	}
 
-	var sliceDeclarations []*sliceDeclaration
+	var (
+		sliceDeclarations   []*sliceDeclaration
+		preallocMsgs        []string
+		returnsInsideOfLoop bool
+	)
 
 	switch n := node.(type) {
 	case *ast.FuncDecl:
@@ -303,7 +307,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 														continue
 													}*/
 
-													log.Printf("%v:%v Consider preallocating %v\n", file.Name(), lineNumber, sliceDecl.name)
+													preallocMsgs = append(preallocMsgs, fmt.Sprintf("%v:%v Consider preallocating %v\n", file.Name(), lineNumber, sliceDecl.name))
 												}
 											}
 										}
@@ -317,8 +321,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 										// TODO should we handle embedded ifs? Going to ignore this for now
 										switch /*ift :=*/ ifBodyStmt.(type) {
 										case *ast.BranchStmt, *ast.ReturnStmt: //invalid because these disrupts control flow of the loop
-											// This completely breaks our range statement, I think we can just return here
-											return v
+											returnsInsideOfLoop = true
 										default:
 										}
 									}
@@ -340,6 +343,16 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	default:
 		return v
 
+	}
+	// if simple is true, then we actually have to check if we had returns inside of our loop. Otherwise, we can just report all messages.
+	if v.simple == true && !returnsInsideOfLoop {
+		for _, preallocMsg := range preallocMsgs {
+			log.Printf(preallocMsg)
+		}
+	} else if v.simple == false {
+		for _, preallocMsg := range preallocMsgs {
+			log.Printf(preallocMsg)
+		}
 	}
 
 	return v
