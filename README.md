@@ -67,6 +67,16 @@ $ prealloc
 //TODO
 ```
 
+```Go
+    // cmd/api/goapi.go:301
+	// In next file, but not in API.
+	var missing []string
+	for feature := range optionalSet {
+		missing = append(missing, feature)
+	}
+
+```
+
 ## TODO
 
 - Unit tests (may require some refactoring to do correctly)
