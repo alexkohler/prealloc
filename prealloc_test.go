@@ -2,20 +2,24 @@ package main
 
 import "testing"
 
-func BenchmarkIndex(b *testing.B) {
+func BenchmarkNoPreallocate(b *testing.B) {
+	existing := make([]int64, 1000, 1000)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		existing := make([]int64, 1000, 1000)
-		init := make([]int64, 1000) // len 1000, cap 1000
-		for index, element := range existing {
-			init[index] = element
+		// Don't preallocate our initial slice
+		var init []int64
+		for _, element := range existing {
+			init = append(init, element)
 		}
 	}
 }
 
-func BenchmarkAppend(b *testing.B) {
+func BenchmarkPreallocate(b *testing.B) {
+	existing := make([]int64, 1000, 1000)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		existing := make([]int64, 1000, 1000)
-		var init []int64
+		// Preallocate our initial slice
+		init := make([]int64, 0, 1000)
 		for _, element := range existing {
 			init = append(init, element)
 		}
