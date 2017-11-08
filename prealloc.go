@@ -15,8 +15,6 @@ import (
 )
 
 // Support: (in order of priority)
-//  * Not all returns are being caught - see cmd/api/goapi.go:476 for an example - you might want to make this configurable.
-// 			(whether or not to include for loops that have a return in them - and make sure you actually take care of all returns)
 //  * Full make suggestion with type?
 //  * Support for loops
 //	* Test flag
@@ -40,9 +38,21 @@ func usage() {
 	flag.PrintDefaults()
 }
 
+type sliceDeclaration struct {
+	name string
+	// sType string
+	genD *ast.GenDecl
+}
+
 type returnsVisitor struct {
-	f      *token.FileSet
-	simple bool
+	f *token.FileSet
+	// flags
+	simple          bool
+	includeForLoops bool
+	// visitor fields
+	sliceDeclarations   []*sliceDeclaration
+	preallocMsgs        []string
+	returnsInsideOfLoop bool
 }
 
 func main() {
@@ -51,16 +61,17 @@ func main() {
 	log.SetFlags(0)
 
 	// This is true by default because of stuff like this - vim /home/alex/go1.9.2/src/cmd/cgo/gcc.go +239
-	simple := flag.Bool("simple", true, "Report preallocation suggestions only on simple for loops that have no returns/breaks/continues/gotos in them")
+	simple := flag.Bool("simple", true, "Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them")
+	includeForLoops := flag.Bool("forloops", false, "Report preallocation suggestions on for loops")
 	flag.Usage = usage
 	flag.Parse()
 
-	if err := checkForPreallocations(flag.Args(), simple); err != nil {
+	if err := checkForPreallocations(flag.Args(), simple, includeForLoops); err != nil {
 		log.Println(err)
 	}
 }
 
-func checkForPreallocations(args []string, simple *bool) error {
+func checkForPreallocations(args []string, simple, includeForLoops *bool) error {
 
 	fset := token.NewFileSet()
 
@@ -73,9 +84,14 @@ func checkForPreallocations(args []string, simple *bool) error {
 		return errors.New("simple nil")
 	}
 
+	if includeForLoops == nil {
+		return errors.New("includeForLoops nil")
+	}
+
 	retVis := &returnsVisitor{
-		f:      fset,
-		simple: *simple,
+		f:               fset,
+		simple:          *simple,
+		includeForLoops: *includeForLoops,
 	}
 
 	for _, f := range files {
@@ -179,17 +195,9 @@ func exists(filename string) bool {
 
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
-	type sliceDeclaration struct {
-		name string
-		// sType string
-		genD *ast.GenDecl
-	}
-
-	var (
-		sliceDeclarations   []*sliceDeclaration
-		preallocMsgs        []string
-		returnsInsideOfLoop bool
-	)
+	v.sliceDeclarations = nil
+	v.preallocMsgs = nil
+	v.returnsInsideOfLoop = false
 
 	switch n := node.(type) {
 	case *ast.FuncDecl:
@@ -262,7 +270,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 									// We should handle multiple slices declared on same line e.g. var mySlice1, mySlice2 []uint32
 									for _, vName := range vSpec.Names {
-										sliceDeclarations = append(sliceDeclarations, &sliceDeclaration{name: vName.Name /*sType: atID.Name,*/, genD: genD})
+										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name /*sType: atID.Name,*/, genD: genD})
 									}
 								}
 							}
@@ -270,68 +278,21 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					}
 
 				case *ast.RangeStmt: // for statement should literally duplicate this
-					if len(sliceDeclarations) == 0 {
+					if len(v.sliceDeclarations) == 0 {
 						continue
 					}
 					if s.Body != nil {
-						for _, stmt := range s.Body.List {
-							//TODO make this a switch and look for if statements with continues or fors
-							switch bodyStmt := stmt.(type) {
-							case *ast.AssignStmt:
-								asgnStmt := bodyStmt //TODO probabably don't need this assignment?
-								for _, expr := range asgnStmt.Rhs {
-									callExpr, ok := expr.(*ast.CallExpr)
-									if !ok {
-										continue // should this be break? comes back to multi-call support I think
-									}
-									ident, ok := callExpr.Fun.(*ast.Ident)
-									if !ok {
-										continue
-									}
-									if ident.Name == "append" {
-										// see if this append is appending the slice we found
-										for _, lhsExpr := range asgnStmt.Lhs {
-											lhsIdent, ok := lhsExpr.(*ast.Ident)
-											if !ok {
-												continue
-											}
-											for _, sliceDecl := range sliceDeclarations {
-												if sliceDecl.name == lhsIdent.Name {
-													file := v.f.File(sliceDecl.genD.Pos())
-													lineNumber := file.Position(sliceDecl.genD.Pos()).Line
-													// This is a potential mark, we just need to make sure there are no returns/continues in the
-													// range loop.
-													// now we just need to grab whatever we're ranging over
-													/*sxIdent, ok := s.X.(*ast.Ident)
-													if !ok {
-														continue
-													}*/
+						v.handleLoops(s.Body)
+					}
 
-													preallocMsgs = append(preallocMsgs, fmt.Sprintf("%v:%v Consider preallocating %v\n", file.Name(), lineNumber, sliceDecl.name))
-												}
-											}
-										}
-
-									}
-								}
-							case *ast.IfStmt:
-								ifStmt := bodyStmt
-								if ifStmt.Body != nil {
-									for _, ifBodyStmt := range ifStmt.Body.List {
-										// TODO should we handle embedded ifs? Going to ignore this for now
-										switch /*ift :=*/ ifBodyStmt.(type) {
-										case *ast.BranchStmt, *ast.ReturnStmt: //invalid because these disrupts control flow of the loop
-											returnsInsideOfLoop = true
-										default:
-										}
-									}
-								}
-
-							default:
-
-							}
+				case *ast.ForStmt:
+					if v.includeForLoops {
+						if len(v.sliceDeclarations) == 0 {
+							continue
 						}
-						// if we've reached this point, we've ranged through everything in the for loop
+						if s.Body != nil {
+							v.handleLoops(s.Body)
+						}
 					}
 
 				default:
@@ -345,15 +306,78 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	}
 	// if simple is true, then we actually have to check if we had returns inside of our loop. Otherwise, we can just report all messages.
-	if v.simple == true && !returnsInsideOfLoop {
-		for _, preallocMsg := range preallocMsgs {
+	if v.simple == true && !v.returnsInsideOfLoop {
+		for _, preallocMsg := range v.preallocMsgs {
 			log.Printf(preallocMsg)
 		}
 	} else if v.simple == false {
-		for _, preallocMsg := range preallocMsgs {
+		for _, preallocMsg := range v.preallocMsgs {
 			log.Printf(preallocMsg)
 		}
 	}
 
 	return v
+}
+
+// handleLoops is a helper function to share the logic required for both *ast.RangeLoops and *ast.ForLoop
+func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
+
+	for _, stmt := range blockStmt.List {
+		//TODO make this a switch and look for if statements with continues or fors
+		switch bodyStmt := stmt.(type) {
+		case *ast.AssignStmt:
+			asgnStmt := bodyStmt //TODO probabably don't need this assignment?
+			for _, expr := range asgnStmt.Rhs {
+				callExpr, ok := expr.(*ast.CallExpr)
+				if !ok {
+					continue // should this be break? comes back to multi-call support I think
+				}
+				ident, ok := callExpr.Fun.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				if ident.Name == "append" {
+					// see if this append is appending the slice we found
+					for _, lhsExpr := range asgnStmt.Lhs {
+						lhsIdent, ok := lhsExpr.(*ast.Ident)
+						if !ok {
+							continue
+						}
+						for _, sliceDecl := range v.sliceDeclarations {
+							if sliceDecl.name == lhsIdent.Name {
+								file := v.f.File(sliceDecl.genD.Pos())
+								lineNumber := file.Position(sliceDecl.genD.Pos()).Line
+								// This is a potential mark, we just need to make sure there are no returns/continues in the
+								// range loop.
+								// now we just need to grab whatever we're ranging over
+								/*sxIdent, ok := s.X.(*ast.Ident)
+								if !ok {
+									continue
+								}*/
+
+								v.preallocMsgs = append(v.preallocMsgs, fmt.Sprintf("%v:%v Consider preallocating %v\n", file.Name(), lineNumber, sliceDecl.name))
+							}
+						}
+					}
+
+				}
+			}
+		case *ast.IfStmt:
+			ifStmt := bodyStmt
+			if ifStmt.Body != nil {
+				for _, ifBodyStmt := range ifStmt.Body.List {
+					// TODO should we handle embedded ifs? Going to ignore this for now
+					switch /*ift :=*/ ifBodyStmt.(type) {
+					case *ast.BranchStmt, *ast.ReturnStmt: //invalid because these disrupts control flow of the loop
+						v.returnsInsideOfLoop = true
+					default:
+					}
+				}
+			}
+
+		default:
+
+		}
+	}
+
 }

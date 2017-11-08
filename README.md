@@ -13,7 +13,8 @@ Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can
     prealloc [flags] files/directories/packages
 
 ### Flags
-- -simple (default true) - Report preallocation suggestions only on simple for loops that have no returns/breaks/continues/gotos in them
+- -simple (default true) - Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them. Setting this to false may increase false positives.
+- -forloops (default false) - Report preallocation suggestions on for loops. This is false by default due to there generally being weirder things happening in for loops (at least from what I've observed in the Standard Library).
 
 ## Purpose
 
@@ -80,7 +81,7 @@ $ prealloc
 
 ## TODO
 
-- Unit tests (may require some refactoring to do correctly)
+- Unit tests
 - supporting toggling of `build.Context.UseAllFiles` may be useful for some. 
 - Configuration on whether or not to run on test files
 - Globbing support (e.g. prealloc *.go)
