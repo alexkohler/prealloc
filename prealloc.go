@@ -18,6 +18,7 @@ import (
 //  * Full make suggestion with type?
 //	* Test flag
 //  * Embedded ifs?
+//  * Use an import rather than the duplcated import.go
 
 const (
 	pwd = "./"
