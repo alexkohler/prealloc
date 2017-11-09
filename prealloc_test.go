@@ -19,7 +19,7 @@ func BenchmarkPreallocate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
-		init := make([]int64, 0, 10)
+		init := make([]int64, 0, len(existing))
 		for _, element := range existing {
 			init = append(init, element)
 		}

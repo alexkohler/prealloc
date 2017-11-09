@@ -43,20 +43,20 @@ func BenchmarkPreallocate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
-		init := make([]int64, 0, 10)
+		init := make([]int64, 0, len(existing))
 		for _, element := range existing {
 			init = append(init, element)
 		}
 	}
-}f
+}
 ```
 
 ```Bash
 $ go test -bench=. -benchmem
 goos: linux
 goarch: amd64
-BenchmarkNoPreallocate-4   	 3000000	       470 ns/op	     248 B/op	       5 allocs/op
-BenchmarkPreallocate-4     	100000000	        12.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNoPreallocate-4   	 3000000	       510 ns/op	     248 B/op	       5 allocs/op
+BenchmarkPreallocate-4     	20000000	       111 ns/op	      80 B/op	       1 allocs/op
 ```
 
 As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends to it. The purpose of this tool is to flag slice/for loop declarations like the one in `BenchmarkNoPreallocate`. 
@@ -114,13 +114,13 @@ text/template/parse/node.go:189 Consider preallocating decl
 ```
 
 ```Go
-    // cmd/api/goapi.go:301
+	// cmd/api/goapi.go:301
 	var missing []string
 	for feature := range optionalSet {
 		missing = append(missing, feature)
 	}
 
-	// 
+	//TODO add some other cases 
 
 ```
 
