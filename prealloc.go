@@ -24,6 +24,7 @@ const (
 )
 
 func init() {
+	// Ignore build flags
 	build.Default.UseAllFiles = true
 }
 
@@ -324,7 +325,7 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 			ifStmt := bodyStmt
 			if ifStmt.Body != nil {
 				for _, ifBodyStmt := range ifStmt.Body.List {
-					// TODO should probably hnadle embedded  ifs hee
+					// TODO should probably handle embedded ifs here
 					switch /*ift :=*/ ifBodyStmt.(type) {
 					case *ast.BranchStmt, *ast.ReturnStmt:
 						v.returnsInsideOfLoop = true
