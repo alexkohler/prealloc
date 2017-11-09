@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func BenchmarkNoPreallocate(b *testing.B) {
-	existing := make([]int64, 1000, 1000)
+	existing := make([]int64, 10, 10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Don't preallocate our initial slice
@@ -15,11 +15,11 @@ func BenchmarkNoPreallocate(b *testing.B) {
 }
 
 func BenchmarkPreallocate(b *testing.B) {
-	existing := make([]int64, 1000, 1000)
+	existing := make([]int64, 10, 10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
-		init := make([]int64, 0, 1000)
+		init := make([]int64, 0, 10)
 		for _, element := range existing {
 			init = append(init, element)
 		}

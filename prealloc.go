@@ -16,17 +16,14 @@ import (
 
 // Support: (in order of priority)
 //  * Full make suggestion with type?
-//  * Support for loops
 //	* Test flag
 //  * Embedded ifs?
 
-// then see the append lines up with the preallocate
 const (
 	pwd = "./"
 )
 
 func init() {
-	//TODO allow build tags
 	build.Default.UseAllFiles = true
 }
 
@@ -47,8 +44,9 @@ type sliceDeclaration struct {
 type returnsVisitor struct {
 	f *token.FileSet
 	// flags
-	simple          bool
-	includeForLoops bool
+	simple            bool
+	includeRangeLoops bool
+	includeForLoops   bool
 	// visitor fields
 	sliceDeclarations   []*sliceDeclaration
 	preallocMsgs        []string
@@ -60,18 +58,18 @@ func main() {
 	// Remove log timestamp
 	log.SetFlags(0)
 
-	// This is true by default because of stuff like this - vim /home/alex/go1.9.2/src/cmd/cgo/gcc.go +239
 	simple := flag.Bool("simple", true, "Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them")
+	includeRangeLoops := flag.Bool("rangeloops", true, "Report preallocation suggestions on range loops")
 	includeForLoops := flag.Bool("forloops", false, "Report preallocation suggestions on for loops")
 	flag.Usage = usage
 	flag.Parse()
 
-	if err := checkForPreallocations(flag.Args(), simple, includeForLoops); err != nil {
+	if err := checkForPreallocations(flag.Args(), simple, includeRangeLoops, includeForLoops); err != nil {
 		log.Println(err)
 	}
 }
 
-func checkForPreallocations(args []string, simple, includeForLoops *bool) error {
+func checkForPreallocations(args []string, simple, includeRangeLoops *bool, includeForLoops *bool) error {
 
 	fset := token.NewFileSet()
 
@@ -84,14 +82,19 @@ func checkForPreallocations(args []string, simple, includeForLoops *bool) error 
 		return errors.New("simple nil")
 	}
 
+	if includeRangeLoops == nil {
+		return errors.New("includeRangeLoops nil")
+	}
+
 	if includeForLoops == nil {
 		return errors.New("includeForLoops nil")
 	}
 
 	retVis := &returnsVisitor{
-		f:               fset,
-		simple:          *simple,
-		includeForLoops: *includeForLoops,
+		f:                 fset,
+		simple:            *simple,
+		includeRangeLoops: *includeRangeLoops,
+		includeForLoops:   *includeForLoops,
 	}
 
 	for _, f := range files {
@@ -201,54 +204,9 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	switch n := node.(type) {
 	case *ast.FuncDecl:
-		// var foundMake bool // this will need to be a list
 		if n.Body != nil {
 			for _, stmt := range n.Body.List {
 				switch s := stmt.(type) {
-				/*case *ast.AssignStmt:
-				// loop through assignment to determine if it's a make
-				for _, expr := range s.Rhs {
-					//CallExpr - do we really need this?
-					callExpr, ok := expr.(*ast.CallExpr)
-					if !ok {
-						continue // should this be break?
-					}
-					ident, ok := callExpr.Fun.(*ast.Ident)
-					if !ok {
-						continue
-					}
-					if ident.Name == "make" { //TODO do we need to care if if there's a capacity specified? I tink not
-						// check callExpr args
-						for _, arg := range callExpr.Args {
-							// we only want to suggest this for maps, not slices - this may be caught by just using append
-							_, ok := arg.(*ast.ArrayType)
-							if !ok {
-								continue
-							}
-							//assign the fact that we have a slice here
-
-							// get the name of the struct being made - TODO support double declarations?
-							if len(s.Lhs) == 1 {
-								// makes  = append(makes, s.Lhs[0])
-								lhsIdent, ok := s.Lhs[0].(*ast.Ident)
-								if !ok {
-									continue
-								}
-								// in addition, we should check if the slice preallocated - for now, this will just be checking length
-								if len(callExpr.Args) == 2 {
-									// fmt.Println("No preallocate!!")
-									makes = append(makes, lhsIdent.Name)
-								} else if len(callExpr.Args) == 3 {
-								}
-							} else if len(s.Lhs) > 1 {
-								fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@ wat lhs > 1")
-							}
-
-							// *********** we have a make with a slice inside, now we need to see if we have a for loop
-
-						}
-					}
-				}*/
 				// Find non pre-allocated slices
 				case *ast.DeclStmt:
 					genD, ok := s.Decl.(*ast.GenDecl)
@@ -277,12 +235,14 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 						}
 					}
 
-				case *ast.RangeStmt: // for statement should literally duplicate this
-					if len(v.sliceDeclarations) == 0 {
-						continue
-					}
-					if s.Body != nil {
-						v.handleLoops(s.Body)
+				case *ast.RangeStmt:
+					if v.includeRangeLoops {
+						if len(v.sliceDeclarations) == 0 {
+							continue
+						}
+						if s.Body != nil {
+							v.handleLoops(s.Body)
+						}
 					}
 
 				case *ast.ForStmt:
@@ -296,7 +256,6 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					}
 
 				default:
-					// fmt.Printf("%T\n", s)
 				}
 			}
 		}
@@ -319,14 +278,13 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-// handleLoops is a helper function to share the logic required for both *ast.RangeLoops and *ast.ForLoop
+// handleLoops is a helper function to share the logic required for both *ast.RangeLoops and *ast.ForLoops
 func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 
 	for _, stmt := range blockStmt.List {
-		//TODO make this a switch and look for if statements with continues or fors
 		switch bodyStmt := stmt.(type) {
 		case *ast.AssignStmt:
-			asgnStmt := bodyStmt //TODO probabably don't need this assignment?
+			asgnStmt := bodyStmt
 			for _, expr := range asgnStmt.Rhs {
 				callExpr, ok := expr.(*ast.CallExpr)
 				if !ok {
@@ -366,9 +324,9 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 			ifStmt := bodyStmt
 			if ifStmt.Body != nil {
 				for _, ifBodyStmt := range ifStmt.Body.List {
-					// TODO should we handle embedded ifs? Going to ignore this for now
+					// TODO should probably hnadle embedded  ifs hee
 					switch /*ift :=*/ ifBodyStmt.(type) {
-					case *ast.BranchStmt, *ast.ReturnStmt: //invalid because these disrupts control flow of the loop
+					case *ast.BranchStmt, *ast.ReturnStmt:
 						v.returnsInsideOfLoop = true
 					default:
 					}
