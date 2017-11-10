@@ -110,7 +110,6 @@ os/os_windows_test.go:766 Consider preallocating args
 runtime/pprof/internal/profile/filter.go:77 Consider preallocating lines
 runtime/pprof/internal/profile/profile.go:554 Consider preallocating names
 text/template/parse/node.go:189 Consider preallocating decl
-
 ```
 
 ```Go
@@ -144,10 +143,45 @@ for feature := range optionalSet {
 
 Even if the size the slice is being preallocated to is small, there's still a performance gain to be had in explicitly specifying the capacity rather than leaving it up to `append` to discover that it needs to preallocate. Of course, preallocation doesn't need to be done *everywhere*. This tool's job is just to help suggest places where one should consider preallocating.
 
+## How do I fix prealloc's suggestions?
+
+During the declaration of your slice, rather than using the zero value of the slice with `var`, intialize it with `make`, passing the appropriate type and length. This length will generally be whatever you are ranging over. Fixing the examples above would look like so:
+
+```Go
+// cmd/api/goapi.go:301
+missing := make([]string, 0, len(optionalSet))
+for feature := range optionalSet {
+	missing = append(missing, feature)
+}
+
+// cmd/fix/typecheck.go:219
+b := make([]ast.Expr, 0, len(a))
+for _, x := range a {
+	b = append(b, x)
+}
+
+// net/internal/socktest/switch.go:34
+st := make([]Stat, 0, len(sw.stats))
+sw.smu.RLock()
+for _, s := range sw.stats {
+	ns := *s
+	st = append(st, ns)
+}
+sw.smu.RUnlock()
+
+// cmd/api/goapi.go:301
+missing := make ([]string, 0, len(optionalSet))
+for feature := range optionalSet {
+	missing = append(missing, feature)
+}
+```
+
+
+
 ## TODO
 
 - Configuration on whether or not to run on test files
-- Support for embedded ifs (finding a return statement in multiple layers of ifs
+- Support for embedded ifs (currently, prealloc will only find breaks/returns/continues/gotos if they are in a single if block, I'd like to expand this to supporting multiple if blocks in the future).
 - supporting toggling of `build.Context.UseAllFiles` may be useful for some. 
 - Globbing support (e.g. prealloc *.go)
 
