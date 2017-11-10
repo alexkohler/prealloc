@@ -145,7 +145,7 @@ Even if the size the slice is being preallocated to is small, there's still a pe
 
 ## How do I fix prealloc's suggestions?
 
-During the declaration of your slice, rather than using the zero value of the slice with `var`, intialize it with `make`, passing the appropriate type and length. This length will generally be whatever you are ranging over. Fixing the examples above would look like so:
+During the declaration of your slice, rather than using the zero value of the slice with `var`, intialize it with `make`, passing the appropriate type and length. This length will generally be whatever you are ranging over. Fixing the examples from above would look like so:
 
 ```Go
 // cmd/api/goapi.go:301
