@@ -59,7 +59,7 @@ BenchmarkNoPreallocate-4   	 3000000	       510 ns/op	     248 B/op	       5 all
 BenchmarkPreallocate-4     	20000000	       111 ns/op	      80 B/op	       1 allocs/op
 ```
 
-As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends or indexes into it. The purpose of this tool is to flag slice/declarations like the one in `BenchmarkNoPreallocate`. 
+As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends or indexes into it. The purpose of this tool is to flag slice/loop like the one in `BenchmarkNoPreallocate`. 
 
 ## Example
 
