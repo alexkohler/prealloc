@@ -21,7 +21,7 @@ Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can
 
 While the [Go *does* attempt to avoid reallocation by growing the capacity in advance](https://github.com/golang/go/blob/87e48c5afdcf5e01bb2b7f51b7643e8901f4b7f9/src/runtime/slice.go#L100-L112), this sometimes isn't enough for longer slices.  If the size of a slice is known at the time of its creation, it should be specified.
 
-Consider the following benchmark: (Found in prealloc_test.go)
+Consider the following benchmark: (this can be found in prealloc_test.go in this repo)
 
 ```Go
 import "testing"
