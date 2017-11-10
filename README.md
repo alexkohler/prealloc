@@ -1,4 +1,4 @@
-# prealloc (work in progress)
+# prealloc
 
 prealloc is a Go static analysis tool to find slice declarations that could potentially be preallocated.
 
@@ -13,9 +13,9 @@ Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can
     prealloc [flags] files/directories/packages
 
 ### Flags
-- -simple (default true) - Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them. Setting this to false may increase false positives.
-- -rangeloops (default true) - Report preallocation suggestions on range loops.
-- -forloops (default false) - Report preallocation suggestions on for loops. This is false by default due to there generally being weirder things happening inside for loops (at least from what I've observed in the Standard Library).
+- **-simple** (default true) - Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them. Setting this to false may increase false positives.
+- **-rangeloops** (default true) - Report preallocation suggestions on range loops.
+- **-forloops** (default false) - Report preallocation suggestions on for loops. This is false by default due to there generally being weirder things happening inside for loops (at least from what I've observed in the Standard Library).
 
 ## Purpose
 
@@ -63,7 +63,7 @@ As you can see, not preallocating can cause a performance hit, primarily due to 
 
 ## Example
 
-Some examples from the Go source:
+Some examples from the Go 1.9.2 source:
 
 ```Bash
 $ prealloc go/src/....
