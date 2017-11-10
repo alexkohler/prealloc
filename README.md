@@ -19,7 +19,7 @@ Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can
 
 ## Purpose
 
-While the [Go *does* attempt to avoid reallocation by growing the capacity in advance](https://github.com/golang/go/blob/87e48c5afdcf5e01bb2b7f51b7643e8901f4b7f9/src/runtime/slice.go#L100-L112), this sometimes isn't enough for longer slices.  If the future size of a slice is known at the time of its creation, it should be specified.
+While the [Go *does* attempt to avoid reallocation by growing the capacity in advance](https://github.com/golang/go/blob/87e48c5afdcf5e01bb2b7f51b7643e8901f4b7f9/src/runtime/slice.go#L100-L112), this sometimes isn't enough for longer slices.  If the size of a slice is known at the time of its creation, it should be specified.
 
 Consider the following benchmark: (Found in prealloc_test.go)
 
@@ -59,7 +59,7 @@ BenchmarkNoPreallocate-4   	 3000000	       510 ns/op	     248 B/op	       5 all
 BenchmarkPreallocate-4     	20000000	       111 ns/op	      80 B/op	       1 allocs/op
 ```
 
-As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends or indexes into it. The purpose of this tool is to flag slice/for loop declarations like the one in `BenchmarkNoPreallocate`. 
+As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends or indexes into it. The purpose of this tool is to flag slice/declarations like the one in `BenchmarkNoPreallocate`. 
 
 ## Example
 
@@ -114,36 +114,35 @@ text/template/parse/node.go:189 Consider preallocating decl
 ```
 
 ```Go
-	// cmd/api/goapi.go:301
-	var missing []string
-	for feature := range optionalSet {
-		missing = append(missing, feature)
-	}
+// cmd/api/goapi.go:301
+var missing []string
+for feature := range optionalSet {
+	missing = append(missing, feature)
+}
 
-	// cmd/fix/typecheck.go:219
-	var b []ast.Expr
-	for _, x := range a {
-		b = append(b, x)
-	}
+// cmd/fix/typecheck.go:219
+var b []ast.Expr
+for _, x := range a {
+	b = append(b, x)
+}
 
-	// net/internal/socktest/switch.go:34
-	var st []Stat
-	sw.smu.RLock()
-	for _, s := range sw.stats {
-		ns := *s
-		st = append(st, ns)
-	}
-	sw.smu.RUnlock()
+// net/internal/socktest/switch.go:34
+var st []Stat
+sw.smu.RLock()
+for _, s := range sw.stats {
+	ns := *s
+	st = append(st, ns)
+}
+sw.smu.RUnlock()
 
-	// cmd/api/goapi.go:301
-	var missing []string
-	for feature := range optionalSet {
-		missing = append(missing, feature)
-	}
-
+// cmd/api/goapi.go:301
+var missing []string
+for feature := range optionalSet {
+	missing = append(missing, feature)
+}
 ```
 
-Even if the size the slice is being preallocated to is small, there's still a performance gain to be had in explicitly specifying the capacity rather than leaving it up to `append` to discovere that it needs to preallocate. Of course, this doesn't need to be done *everywhere*. This tool's job is just to help suggest places where one should consider preallocating.
+Even if the size the slice is being preallocated to is small, there's still a performance gain to be had in explicitly specifying the capacity rather than leaving it up to `append` to discover that it needs to preallocate. Of course, preallocation doesn't need to be done *everywhere*. This tool's job is just to help suggest places where one should consider preallocating.
 
 ## TODO
 
