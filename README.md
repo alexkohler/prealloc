@@ -15,7 +15,7 @@ Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can
 ### Flags
 - -simple (default true) - Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them. Setting this to false may increase false positives.
 - -rangeloops (default true) - Report preallocation suggestions on range loops.
-- -forloops (default false) - Report preallocation suggestions on for loops. This is false by default due to there generally being weirder things happening in for loops (at least from what I've observed in the Standard Library).
+- -forloops (default false) - Report preallocation suggestions on for loops. This is false by default due to there generally being weirder things happening inside for loops (at least from what I've observed in the Standard Library).
 
 ## Purpose
 
@@ -59,7 +59,7 @@ BenchmarkNoPreallocate-4   	 3000000	       510 ns/op	     248 B/op	       5 all
 BenchmarkPreallocate-4     	20000000	       111 ns/op	      80 B/op	       1 allocs/op
 ```
 
-As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends to it. The purpose of this tool is to flag slice/for loop declarations like the one in `BenchmarkNoPreallocate`. 
+As you can see, not preallocating can cause a performance hit, primarily due to Go having to reallocate the underlying array. The pattern benchmarked above is common in Go: declare a slice, then write some sort of range or for loop that appends or indexes into it. The purpose of this tool is to flag slice/for loop declarations like the one in `BenchmarkNoPreallocate`. 
 
 ## Example
 
@@ -120,15 +120,36 @@ text/template/parse/node.go:189 Consider preallocating decl
 		missing = append(missing, feature)
 	}
 
-	//TODO add some other cases 
+	// cmd/fix/typecheck.go:219
+	var b []ast.Expr
+	for _, x := range a {
+		b = append(b, x)
+	}
+
+	// net/internal/socktest/switch.go:34
+	var st []Stat
+	sw.smu.RLock()
+	for _, s := range sw.stats {
+		ns := *s
+		st = append(st, ns)
+	}
+	sw.smu.RUnlock()
+
+	// cmd/api/goapi.go:301
+	var missing []string
+	for feature := range optionalSet {
+		missing = append(missing, feature)
+	}
 
 ```
 
+Even if the size the slice is being preallocated to is small, there's still a performance gain to be had in explicitly specifying the capacity rather than leaving it up to `append` to discovere that it needs to preallocate. Of course, this doesn't need to be done *everywhere*. This tool's job is just to help suggest places where one should consider preallocating.
+
 ## TODO
 
-- Unit tests
-- supporting toggling of `build.Context.UseAllFiles` may be useful for some. 
 - Configuration on whether or not to run on test files
+- Support for embedded ifs (finding a return statement in multiple layers of ifs
+- supporting toggling of `build.Context.UseAllFiles` may be useful for some. 
 - Globbing support (e.g. prealloc *.go)
 
 
@@ -141,4 +162,4 @@ Pull requests welcome!
 
 If you've enjoyed prealloc, take a look at my other static anaylsis tools!
 - [nakedret](https://github.com/alexkohler/nakedret) - Finds naked returns.
-- [unimport](https://github.com/alexkohler/unimport) - Finds unnecessary import aliases
+- [unimport](https://github.com/alexkohler/unimport) - Finds unnecessary import aliases.
