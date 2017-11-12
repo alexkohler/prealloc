@@ -198,11 +198,22 @@ func exists(filename string) bool {
 	return err == nil
 }
 
+func contains(slice []string, item string) bool {
+	set := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+
+	_, ok := set[item]
+	return ok
+}
+
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	v.sliceDeclarations = nil
 	v.preallocMsgs = nil
 	v.returnsInsideOfLoop = false
+	var arrayTypes []string = nil
 
 	switch n := node.(type) {
 	case *ast.FuncDecl:
@@ -215,13 +226,29 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					if !ok {
 						continue
 					}
-					if genD.Tok == token.VAR {
+					if genD.Tok == token.TYPE {
+						for _, spec := range genD.Specs {
+							tSpec, ok := spec.(*ast.TypeSpec)
+							if !ok {
+								continue
+							}
+
+							if _, ok := tSpec.Type.(*ast.ArrayType); ok {
+								arrayTypes = append(arrayTypes, tSpec.Name.Name)
+							}
+						}
+					} else if genD.Tok == token.VAR {
 						for _, spec := range genD.Specs {
 							vSpec, ok := spec.(*ast.ValueSpec)
 							if !ok {
 								continue
 							}
-							if /*arrayType*/ _, ok := vSpec.Type.(*ast.ArrayType); ok {
+							var ok2 bool
+							/*arrayType*/ _, ok1 := vSpec.Type.(*ast.ArrayType)
+							if val, ok := vSpec.Type.(*ast.Ident); ok {
+								ok2 = contains(arrayTypes, val.Name)
+							}
+							if ok1 || ok2 {
 								if vSpec.Names != nil {
 									/*atID, ok := arrayType.Elt.(*ast.Ident)
 									if !ok {
