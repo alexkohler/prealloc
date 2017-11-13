@@ -199,13 +199,13 @@ func exists(filename string) bool {
 }
 
 func contains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {
-		set[s] = struct{}{}
+		if s == item {
+			return true
+		}
 	}
 
-	_, ok := set[item]
-	return ok
+	return false
 }
 
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
@@ -243,12 +243,15 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							if !ok {
 								continue
 							}
-							var ok2 bool
-							/*arrayType*/ _, ok1 := vSpec.Type.(*ast.ArrayType)
-							if val, ok := vSpec.Type.(*ast.Ident); ok {
-								ok2 = contains(arrayTypes, val.Name)
+							var isArrType bool
+							switch vSpec.Type.(type) {
+							case *ast.ArrayType:
+								isArrType = true
+							case *ast.Ident:
+								val, _ := vSpec.Type.(*ast.Ident)
+								isArrType = contains(arrayTypes, val.Name)
 							}
-							if ok1 || ok2 {
+							if isArrType {
 								if vSpec.Names != nil {
 									/*atID, ok := arrayType.Elt.(*ast.Ident)
 									if !ok {
