@@ -213,7 +213,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	v.sliceDeclarations = nil
 	v.preallocMsgs = nil
 	v.returnsInsideOfLoop = false
-	var arrayTypes []string = nil
+	var arrayTypes []string
 
 	switch n := node.(type) {
 	case *ast.FuncDecl:
@@ -234,7 +234,9 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							}
 
 							if _, ok := tSpec.Type.(*ast.ArrayType); ok {
-								arrayTypes = append(arrayTypes, tSpec.Name.Name)
+								if tSpec.Name != nil {
+									arrayTypes = append(arrayTypes, tSpec.Name.Name)
+								}
 							}
 						}
 					} else if genD.Tok == token.VAR {
@@ -244,11 +246,10 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 								continue
 							}
 							var isArrType bool
-							switch vSpec.Type.(type) {
+							switch val := vSpec.Type.(type) {
 							case *ast.ArrayType:
 								isArrType = true
 							case *ast.Ident:
-								val, _ := vSpec.Type.(*ast.Ident)
 								isArrType = contains(arrayTypes, val.Name)
 							}
 							if isArrType {
