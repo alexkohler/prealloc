@@ -208,14 +208,21 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
+var arrayTypes []string
+
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	v.sliceDeclarations = nil
 	v.preallocMsgs = nil
 	v.returnsInsideOfLoop = false
-	var arrayTypes []string
 
 	switch n := node.(type) {
+	case *ast.TypeSpec:
+		if _, ok := n.Type.(*ast.ArrayType); ok {
+			if n.Name != nil {
+				arrayTypes = append(arrayTypes, n.Name.Name)
+			}
+		}
 	case *ast.FuncDecl:
 		if n.Body != nil {
 			for _, stmt := range n.Body.List {
