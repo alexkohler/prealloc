@@ -53,6 +53,7 @@ type returnsVisitor struct {
 	sliceDeclarations   []*sliceDeclaration
 	preallocMsgs        []string
 	returnsInsideOfLoop bool
+	arrayTypes          []string
 }
 
 func main() {
@@ -100,6 +101,7 @@ func checkForPreallocations(args []string, simple, includeRangeLoops *bool, incl
 	}
 
 	for _, f := range files {
+		retVis.arrayTypes = nil
 		ast.Walk(retVis, f)
 	}
 
@@ -208,8 +210,6 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-var arrayTypes []string
-
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	v.sliceDeclarations = nil
@@ -220,7 +220,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	case *ast.TypeSpec:
 		if _, ok := n.Type.(*ast.ArrayType); ok {
 			if n.Name != nil {
-				arrayTypes = append(arrayTypes, n.Name.Name)
+				v.arrayTypes = append(v.arrayTypes, n.Name.Name)
 			}
 		}
 	case *ast.FuncDecl:
@@ -242,7 +242,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 							if _, ok := tSpec.Type.(*ast.ArrayType); ok {
 								if tSpec.Name != nil {
-									arrayTypes = append(arrayTypes, tSpec.Name.Name)
+									v.arrayTypes = append(v.arrayTypes, tSpec.Name.Name)
 								}
 							}
 						}
@@ -257,7 +257,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							case *ast.ArrayType:
 								isArrType = true
 							case *ast.Ident:
-								isArrType = contains(arrayTypes, val.Name)
+								isArrType = contains(v.arrayTypes, val.Name)
 							}
 							if isArrType {
 								if vSpec.Names != nil {
