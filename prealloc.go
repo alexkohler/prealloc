@@ -53,6 +53,7 @@ type returnsVisitor struct {
 	sliceDeclarations   []*sliceDeclaration
 	preallocMsgs        []string
 	returnsInsideOfLoop bool
+	arrayTypes          []string
 }
 
 func main() {
@@ -100,6 +101,7 @@ func checkForPreallocations(args []string, simple, includeRangeLoops *bool, incl
 	}
 
 	for _, f := range files {
+		retVis.arrayTypes = nil
 		ast.Walk(retVis, f)
 	}
 
@@ -198,6 +200,16 @@ func exists(filename string) bool {
 	return err == nil
 }
 
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	v.sliceDeclarations = nil
@@ -205,6 +217,12 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	v.returnsInsideOfLoop = false
 
 	switch n := node.(type) {
+	case *ast.TypeSpec:
+		if _, ok := n.Type.(*ast.ArrayType); ok {
+			if n.Name != nil {
+				v.arrayTypes = append(v.arrayTypes, n.Name.Name)
+			}
+		}
 	case *ast.FuncDecl:
 		if n.Body != nil {
 			for _, stmt := range n.Body.List {
@@ -215,13 +233,33 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					if !ok {
 						continue
 					}
-					if genD.Tok == token.VAR {
+					if genD.Tok == token.TYPE {
+						for _, spec := range genD.Specs {
+							tSpec, ok := spec.(*ast.TypeSpec)
+							if !ok {
+								continue
+							}
+
+							if _, ok := tSpec.Type.(*ast.ArrayType); ok {
+								if tSpec.Name != nil {
+									v.arrayTypes = append(v.arrayTypes, tSpec.Name.Name)
+								}
+							}
+						}
+					} else if genD.Tok == token.VAR {
 						for _, spec := range genD.Specs {
 							vSpec, ok := spec.(*ast.ValueSpec)
 							if !ok {
 								continue
 							}
-							if /*arrayType*/ _, ok := vSpec.Type.(*ast.ArrayType); ok {
+							var isArrType bool
+							switch val := vSpec.Type.(type) {
+							case *ast.ArrayType:
+								isArrType = true
+							case *ast.Ident:
+								isArrType = contains(v.arrayTypes, val.Name)
+							}
+							if isArrType {
 								if vSpec.Names != nil {
 									/*atID, ok := arrayType.Elt.(*ast.Ident)
 									if !ok {
