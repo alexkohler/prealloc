@@ -8,7 +8,7 @@ prealloc is a Go static analysis tool to find slice declarations that could pote
 
 ## Usage
 
-Similar to other Go static anaylsis tools (such as golint, go vet), prealloc can be invoked with one or more filenames, directories, or packages named by its import path. Prealloc also supports the `...` wildcard. 
+Similar to other Go static analysis tools (such as golint, go vet), prealloc can be invoked with one or more filenames, directories, or packages named by its import path. Prealloc also supports the `...` wildcard.
 
     prealloc [flags] files/directories/packages
 
@@ -145,7 +145,7 @@ Even if the size the slice is being preallocated to is small, there's still a pe
 
 ## How do I fix prealloc's suggestions?
 
-During the declaration of your slice, rather than using the zero value of the slice with `var`, intialize it with `make`, passing the appropriate type and length. This length will generally be whatever you are ranging over. Fixing the examples from above would look like so:
+During the declaration of your slice, rather than using the zero value of the slice with `var`, initialize it with Go's built-in `make` function, passing the appropriate type and length. This length will generally be whatever you are ranging over. Fixing the examples from above would look like so:
 
 ```Go
 // cmd/api/goapi.go:301
