@@ -16,6 +16,7 @@ Similar to other Go static analysis tools (such as golint, go vet), prealloc can
 - **-simple** (default true) - Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them. Setting this to false may increase false positives.
 - **-rangeloops** (default true) - Report preallocation suggestions on range loops.
 - **-forloops** (default false) - Report preallocation suggestions on for loops. This is false by default due to there generally being weirder things happening inside for loops (at least from what I've observed in the Standard Library).
+- **-set_exit_status** (default false) - Set exit status to 1 if any issues are found.
 
 ## Purpose
 

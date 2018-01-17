@@ -64,6 +64,7 @@ func main() {
 	simple := flag.Bool("simple", true, "Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them")
 	includeRangeLoops := flag.Bool("rangeloops", true, "Report preallocation suggestions on range loops")
 	includeForLoops := flag.Bool("forloops", false, "Report preallocation suggestions on for loops")
+	setExitStatus := flag.Bool("set_exit_status", false, "Set exit status to 1 if any issues are found")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -74,6 +75,9 @@ func main() {
 
 	for _, hint := range hints {
 		log.Println(hint)
+	}
+	if *setExitStatus && len(hints) > 0 {
+		os.Exit(1)
 	}
 }
 
