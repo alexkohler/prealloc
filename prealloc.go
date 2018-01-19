@@ -313,14 +313,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 				}
 			}
 		}
-
-	default:
-		return v
-
 	}
-	// if simple is true, then we actually have to check if we had returns
-	// inside of our loop. Otherwise, we can just report all messages.
-
 	return v
 }
 
@@ -390,7 +383,7 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 
 }
 
-// Hint stores the infomration about an occurance of a slice that could be
+// Hint stores the information about an occurence of a slice that could be
 // preallocated.
 type Hint struct {
 	Filename          string
