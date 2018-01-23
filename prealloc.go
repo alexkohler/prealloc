@@ -51,7 +51,7 @@ type returnsVisitor struct {
 	includeForLoops   bool
 	// visitor fields
 	sliceDeclarations   []*sliceDeclaration
-	preallocMsgs        []string
+	preallocHints       []Hint
 	returnsInsideOfLoop bool
 	arrayTypes          []string
 }
@@ -64,48 +64,61 @@ func main() {
 	simple := flag.Bool("simple", true, "Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them")
 	includeRangeLoops := flag.Bool("rangeloops", true, "Report preallocation suggestions on range loops")
 	includeForLoops := flag.Bool("forloops", false, "Report preallocation suggestions on for loops")
+	setExitStatus := flag.Bool("set_exit_status", false, "Set exit status to 1 if any issues are found")
 	flag.Usage = usage
 	flag.Parse()
 
-	if err := checkForPreallocations(flag.Args(), simple, includeRangeLoops, includeForLoops); err != nil {
+	hints, err := checkForPreallocations(flag.Args(), simple, includeRangeLoops, includeForLoops)
+	if err != nil {
 		log.Println(err)
+	}
+
+	for _, hint := range hints {
+		log.Println(hint)
+	}
+	if *setExitStatus && len(hints) > 0 {
+		os.Exit(1)
 	}
 }
 
-func checkForPreallocations(args []string, simple, includeRangeLoops *bool, includeForLoops *bool) error {
+func checkForPreallocations(args []string, simple, includeRangeLoops *bool, includeForLoops *bool) ([]Hint, error) {
 
 	fset := token.NewFileSet()
 
 	files, err := parseInput(args, fset)
 	if err != nil {
-		return fmt.Errorf("could not parse input %v", err)
+		return nil, fmt.Errorf("could not parse input %v", err)
 	}
 
 	if simple == nil {
-		return errors.New("simple nil")
+		return nil, errors.New("simple nil")
 	}
 
 	if includeRangeLoops == nil {
-		return errors.New("includeRangeLoops nil")
+		return nil, errors.New("includeRangeLoops nil")
 	}
 
 	if includeForLoops == nil {
-		return errors.New("includeForLoops nil")
+		return nil, errors.New("includeForLoops nil")
 	}
 
-	retVis := &returnsVisitor{
-		f:                 fset,
-		simple:            *simple,
-		includeRangeLoops: *includeRangeLoops,
-		includeForLoops:   *includeForLoops,
-	}
-
+	hints := []Hint{}
 	for _, f := range files {
-		retVis.arrayTypes = nil
+		retVis := &returnsVisitor{
+			f:                 fset,
+			simple:            *simple,
+			includeRangeLoops: *includeRangeLoops,
+			includeForLoops:   *includeForLoops,
+		}
 		ast.Walk(retVis, f)
+		// if simple is true, then we actually have to check if we had returns
+		// inside of our loop. Otherwise, we can just report all messages.
+		if !retVis.simple || !retVis.returnsInsideOfLoop {
+			hints = append(hints, retVis.preallocHints...)
+		}
 	}
 
-	return nil
+	return hints, nil
 }
 
 func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
@@ -213,7 +226,6 @@ func contains(slice []string, item string) bool {
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 	v.sliceDeclarations = nil
-	v.preallocMsgs = nil
 	v.returnsInsideOfLoop = false
 
 	switch n := node.(type) {
@@ -299,22 +311,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 				}
 			}
 		}
-
-	default:
-		return v
-
 	}
-	// if simple is true, then we actually have to check if we had returns inside of our loop. Otherwise, we can just report all messages.
-	if v.simple == true && !v.returnsInsideOfLoop {
-		for _, preallocMsg := range v.preallocMsgs {
-			log.Printf(preallocMsg)
-		}
-	} else if v.simple == false {
-		for _, preallocMsg := range v.preallocMsgs {
-			log.Printf(preallocMsg)
-		}
-	}
-
 	return v
 }
 
@@ -353,7 +350,11 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 									continue
 								}*/
 
-								v.preallocMsgs = append(v.preallocMsgs, fmt.Sprintf("%v:%v Consider preallocating %v\n", file.Name(), lineNumber, sliceDecl.name))
+								v.preallocHints = append(v.preallocHints, Hint{
+									Filename:          file.Name(),
+									LineNumber:        lineNumber,
+									DeclaredSliceName: sliceDecl.name,
+								})
 							}
 						}
 					}
@@ -378,4 +379,16 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 		}
 	}
 
+}
+
+// Hint stores the information about an occurence of a slice that could be
+// preallocated.
+type Hint struct {
+	Filename          string
+	LineNumber        int
+	DeclaredSliceName string
+}
+
+func (h Hint) String() string {
+	return fmt.Sprintf("%v:%v Consider preallocating %v", h.Filename, h.LineNumber, h.DeclaredSliceName)
 }
