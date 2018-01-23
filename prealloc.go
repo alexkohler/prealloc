@@ -102,16 +102,14 @@ func checkForPreallocations(args []string, simple, includeRangeLoops *bool, incl
 		return nil, errors.New("includeForLoops nil")
 	}
 
-	retVis := &returnsVisitor{
-		f:                 fset,
-		simple:            *simple,
-		includeRangeLoops: *includeRangeLoops,
-		includeForLoops:   *includeForLoops,
-	}
-
 	hints := []Hint{}
 	for _, f := range files {
-		retVis.arrayTypes = nil
+		retVis := &returnsVisitor{
+			f:                 fset,
+			simple:            *simple,
+			includeRangeLoops: *includeRangeLoops,
+			includeForLoops:   *includeForLoops,
+		}
 		ast.Walk(retVis, f)
 		// if simple is true, then we actually have to check if we had returns
 		// inside of our loop. Otherwise, we can just report all messages.
