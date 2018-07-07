@@ -177,7 +177,7 @@ for feature := range optionalSet {
 }
 ```
 
-Note: If performance is absolutely critical, it may be more efficient to use `copy` instead of `append` for larger array sizes. For reference, see the following benchmark:
+Note: If performance is absolutely critical, it may be more efficient to use `copy` instead of `append` for larger slices. For reference, see the following benchmark:
 ```Go
 func BenchmarkSize200PreallocateCopy(b *testing.B) {
 	existing := make([]int64, 200, 200)
