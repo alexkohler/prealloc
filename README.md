@@ -177,7 +177,26 @@ for feature := range optionalSet {
 }
 ```
 
-
+Note: If performance is absolutely critical, it may be more efficient to use `copy` instead of `append` for larger slices. For reference, see the following benchmark:
+```Go
+func BenchmarkSize200PreallocateCopy(b *testing.B) {
+	existing := make([]int64, 200, 200)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Preallocate our initial slice
+		init := make([]int64, len(existing))
+		copy(init, existing)
+	}
+}
+```
+```
+$ go test -bench=. -benchmem
+goos: linux
+goarch: amd64
+BenchmarkSize200NoPreallocate-4     	  500000	      3080 ns/op	    4088 B/op	       9 allocs/op
+BenchmarkSize200Preallocate-4       	 1000000	      1163 ns/op	    1792 B/op	       1 allocs/op
+BenchmarkSize200PreallocateCopy-4   	 2000000	       807 ns/op	    1792 B/op	       1 allocs/op
+```
 
 ## TODO
 
