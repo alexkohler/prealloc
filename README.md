@@ -196,7 +196,7 @@ goarch: amd64
 BenchmarkSize200NoPreallocate-4     	  500000	      3080 ns/op	    4088 B/op	       9 allocs/op
 BenchmarkSize200Preallocate-4       	 1000000	      1163 ns/op	    1792 B/op	       1 allocs/op
 BenchmarkSize200PreallocateCopy-4   	 2000000	       807 ns/op	    1792 B/op	       1 allocs/op
-
+```
 
 ## TODO
 
