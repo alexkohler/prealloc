@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -68,7 +67,7 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	hints, err := checkForPreallocations(flag.Args(), simple, includeRangeLoops, includeForLoops)
+	hints, err := checkForPreallocations(flag.Args(), *simple, *includeRangeLoops, *includeForLoops)
 	if err != nil {
 		log.Println(err)
 	}
@@ -81,7 +80,7 @@ func main() {
 	}
 }
 
-func checkForPreallocations(args []string, simple, includeRangeLoops *bool, includeForLoops *bool) ([]Hint, error) {
+func checkForPreallocations(args []string, simple, includeRangeLoops, includeForLoops bool) ([]Hint, error) {
 
 	fset := token.NewFileSet()
 
@@ -90,25 +89,13 @@ func checkForPreallocations(args []string, simple, includeRangeLoops *bool, incl
 		return nil, fmt.Errorf("could not parse input %v", err)
 	}
 
-	if simple == nil {
-		return nil, errors.New("simple nil")
-	}
-
-	if includeRangeLoops == nil {
-		return nil, errors.New("includeRangeLoops nil")
-	}
-
-	if includeForLoops == nil {
-		return nil, errors.New("includeForLoops nil")
-	}
-
 	hints := []Hint{}
 	for _, f := range files {
 		retVis := &returnsVisitor{
 			f:                 fset,
-			simple:            *simple,
-			includeRangeLoops: *includeRangeLoops,
-			includeForLoops:   *includeForLoops,
+			simple:            simple,
+			includeRangeLoops: includeRangeLoops,
+			includeForLoops:   includeForLoops,
 		}
 		ast.Walk(retVis, f)
 		// if simple is true, then we actually have to check if we had returns
