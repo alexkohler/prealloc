@@ -381,7 +381,7 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 
 }
 
-// Hint stores the information about an occurence of a slice that could be
+// Hint stores the information about an occurrence of a slice that could be
 // preallocated.
 type Hint struct {
 	Filename          string
