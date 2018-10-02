@@ -212,6 +212,6 @@ Pull requests welcome!
 
 ## Other static analysis tools
 
-If you've enjoyed prealloc, take a look at my other static anaylsis tools!
+If you've enjoyed prealloc, take a look at my other static analysis tools!
 - [nakedret](https://github.com/alexkohler/nakedret) - Finds naked returns.
 - [unimport](https://github.com/alexkohler/unimport) - Finds unnecessary import aliases.
