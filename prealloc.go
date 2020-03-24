@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -68,7 +67,7 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	hints, err := checkForPreallocations(flag.Args(), simple, includeRangeLoops, includeForLoops)
+	hints, err := checkForPreallocations(flag.Args(), *simple, *includeRangeLoops, *includeForLoops)
 	if err != nil {
 		log.Println(err)
 	}
@@ -81,7 +80,7 @@ func main() {
 	}
 }
 
-func checkForPreallocations(args []string, simple, includeRangeLoops *bool, includeForLoops *bool) ([]Hint, error) {
+func checkForPreallocations(args []string, simple, includeRangeLoops, includeForLoops bool) ([]Hint, error) {
 
 	fset := token.NewFileSet()
 
@@ -90,25 +89,13 @@ func checkForPreallocations(args []string, simple, includeRangeLoops *bool, incl
 		return nil, fmt.Errorf("could not parse input %v", err)
 	}
 
-	if simple == nil {
-		return nil, errors.New("simple nil")
-	}
-
-	if includeRangeLoops == nil {
-		return nil, errors.New("includeRangeLoops nil")
-	}
-
-	if includeForLoops == nil {
-		return nil, errors.New("includeForLoops nil")
-	}
-
 	hints := []Hint{}
 	for _, f := range files {
 		retVis := &returnsVisitor{
 			f:                 fset,
-			simple:            *simple,
-			includeRangeLoops: *includeRangeLoops,
-			includeForLoops:   *includeForLoops,
+			simple:            simple,
+			includeRangeLoops: includeRangeLoops,
+			includeForLoops:   includeForLoops,
 		}
 		ast.Walk(retVis, f)
 		// if simple is true, then we actually have to check if we had returns
@@ -322,43 +309,73 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 		switch bodyStmt := stmt.(type) {
 		case *ast.AssignStmt:
 			asgnStmt := bodyStmt
-			for _, expr := range asgnStmt.Rhs {
-				callExpr, ok := expr.(*ast.CallExpr)
-				if !ok {
-					continue // should this be break? comes back to multi-call support I think
+			for index, expr := range asgnStmt.Rhs {
+				if index >= len(asgnStmt.Lhs) {
+					continue
 				}
-				ident, ok := callExpr.Fun.(*ast.Ident)
+
+				lhsIdent, ok := asgnStmt.Lhs[index].(*ast.Ident)
 				if !ok {
 					continue
 				}
-				if ident.Name == "append" {
-					// see if this append is appending the slice we found
-					for _, lhsExpr := range asgnStmt.Lhs {
-						lhsIdent, ok := lhsExpr.(*ast.Ident)
+
+				callExpr, ok := expr.(*ast.CallExpr)
+				if !ok {
+					continue
+				}
+
+				rhsFuncIdent, ok := callExpr.Fun.(*ast.Ident)
+				if !ok {
+					continue
+				}
+
+				if rhsFuncIdent.Name != "append" {
+					continue
+				}
+
+				// e.g., `x = append(x)`
+				// Pointless, but pre-allocation will not help.
+				if len(callExpr.Args) < 2 {
+					continue
+				}
+
+				rhsIdent, ok := callExpr.Args[0].(*ast.Ident)
+				if !ok {
+					continue
+				}
+
+				// e.g., `x = append(y, a)`
+				// This is weird (and maybe a logic error),
+				// but we cannot recommend pre-allocation.
+				if lhsIdent.Name != rhsIdent.Name {
+					continue
+				}
+
+				// e.g., `x = append(x, y...)`
+				// we should ignore this. Pre-allocating in this case
+				// is confusing, and is not possible in general.
+				if callExpr.Ellipsis.IsValid() {
+					continue
+				}
+
+				for _, sliceDecl := range v.sliceDeclarations {
+					if sliceDecl.name == lhsIdent.Name {
+						file := v.f.File(sliceDecl.genD.Pos())
+						lineNumber := file.Position(sliceDecl.genD.Pos()).Line
+						// This is a potential mark, we just need to make sure there are no returns/continues in the
+						// range loop.
+						// now we just need to grab whatever we're ranging over
+						/*sxIdent, ok := s.X.(*ast.Ident)
 						if !ok {
 							continue
-						}
-						for _, sliceDecl := range v.sliceDeclarations {
-							if sliceDecl.name == lhsIdent.Name {
-								file := v.f.File(sliceDecl.genD.Pos())
-								lineNumber := file.Position(sliceDecl.genD.Pos()).Line
-								// This is a potential mark, we just need to make sure there are no returns/continues in the
-								// range loop.
-								// now we just need to grab whatever we're ranging over
-								/*sxIdent, ok := s.X.(*ast.Ident)
-								if !ok {
-									continue
-								}*/
+						}*/
 
-								v.preallocHints = append(v.preallocHints, Hint{
-									Filename:          file.Name(),
-									LineNumber:        lineNumber,
-									DeclaredSliceName: sliceDecl.name,
-								})
-							}
-						}
+						v.preallocHints = append(v.preallocHints, Hint{
+							Filename:          file.Name(),
+							LineNumber:        lineNumber,
+							DeclaredSliceName: sliceDecl.name,
+						})
 					}
-
 				}
 			}
 		case *ast.IfStmt:
