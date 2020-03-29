@@ -279,6 +279,16 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 						if len(v.sliceDeclarations) == 0 {
 							continue
 						}
+						// Check the value being ranged over and ensure it's not a channel (we cannot offer any recommendations on channel ranges).
+						rangeIdent, ok := s.X.(*ast.Ident)
+						if ok {
+							valueSpec, ok := rangeIdent.Obj.Decl.(*ast.ValueSpec)
+							if ok {
+								if _, rangeTargetIsChannel := valueSpec.Type.(*ast.ChanType); rangeTargetIsChannel {
+									continue
+								}
+							}
+						}
 						if s.Body != nil {
 							v.handleLoops(s.Body)
 						}
