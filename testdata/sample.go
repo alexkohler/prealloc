@@ -3,8 +3,9 @@ package main
 func main() {
 	x := make([]rune, len("Hello"))
 	var y []rune
-	var z, w, v, u []int
+	var z, w, v, u, s []int
 	var t [][]int
+	var intChan chan int
 
 	for i, r := range "Hello" {
 		// x is already pre-allocated
@@ -25,6 +26,11 @@ func main() {
 
 		// t is a candidate for pre-allocation
 		t = append(t, foo(i))
+	}
+
+	for i := range intChan {
+		// s is not a candidate for pre-allocation since the range target is a channel
+		s = append(s, i)
 	}
 
 	_ = v
