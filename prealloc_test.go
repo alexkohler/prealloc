@@ -1,26 +1,33 @@
 package main
 
-import "testing"
+import (
+	"go/token"
+	"testing"
+
+	"github.com/alexkohler/prealloc/pkg"
+)
 
 func Test_checkForPreallocations(t *testing.T) {
 	const filename = "testdata/sample.go"
 
-	got, err := checkForPreallocations([]string{filename}, true, true, true)
+	fset := token.NewFileSet()
+
+	got, err := checkForPreallocations([]string{filename}, fset, true, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	want := []Hint{
-		Hint{
-			LineNumber:        5,
+	want := []pkg.Hint{
+		pkg.Hint{
+			Pos:               63,
 			DeclaredSliceName: "y",
 		},
-		Hint{
-			LineNumber:        6,
+		pkg.Hint{
+			Pos:               77,
 			DeclaredSliceName: "z",
 		},
-		Hint{
-			LineNumber:        7,
+		pkg.Hint{
+			Pos:               102,
 			DeclaredSliceName: "t",
 		},
 	}
@@ -32,12 +39,17 @@ func Test_checkForPreallocations(t *testing.T) {
 	for i := range got {
 		act, exp := got[i], want[i]
 
-		if act.Filename != filename {
-			t.Errorf("wrong hints[%d].Filename: %q (expected: %q)", i, act.Filename, filename)
+		file := fset.File(act.Pos)
+
+		if file.Name() != filename {
+			t.Errorf("wrong hints[%d].Filename: %q (expected: %q)", i, file.Name(), filename)
 		}
 
-		if act.LineNumber != exp.LineNumber {
-			t.Errorf("wrong hints[%d].LineNumber: %d (expected: %d)", i, act.LineNumber, exp.LineNumber)
+		actLineNumber := file.Position(act.Pos).Line
+		expLineNumber := file.Position(exp.Pos).Line
+
+		if actLineNumber != expLineNumber {
+			t.Errorf("wrong hints[%d].LineNumber: %d (expected: %d)", i, actLineNumber, expLineNumber)
 		}
 
 		if act.DeclaredSliceName != exp.DeclaredSliceName {
