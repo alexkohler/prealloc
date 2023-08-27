@@ -94,13 +94,15 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							if !ok {
 								continue
 							}
-							var isArrType bool
-							switch val := vSpec.Type.(type) {
-							case *ast.ArrayType:
-								isArrType = true
-							case *ast.Ident:
-								isArrType = contains(v.arrayTypes, val.Name)
+
+							var isArrType = v.isArrayType(vSpec.Type)
+							if len(vSpec.Values) > 0 {
+								callExpr, ok := vSpec.Values[0].(*ast.CallExpr)
+								if ok && isMakeFunc(callExpr) && len(callExpr.Args) > 0 {
+									isArrType = v.isArrayType(callExpr.Args[0])
+								}
 							}
+
 							if isArrType {
 								if vSpec.Names != nil {
 									/*atID, ok := arrayType.Elt.(*ast.Ident)
@@ -109,7 +111,11 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 									}*/
 
 									// We should handle multiple slices declared on same line e.g. var mySlice1, mySlice2 []uint32
-									for _, vName := range vSpec.Names {
+									for index, vName := range vSpec.Names {
+										// Skip pre-allocated slices
+										if index < len(vSpec.Values) && preAllocated(vSpec.Values[index]) {
+											continue
+										}
 										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name /*sType: atID.Name,*/, genD: genD})
 									}
 								}
@@ -248,6 +254,17 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 
 }
 
+// handleLoops is a helper function to check whether a expr is array type
+func (v *returnsVisitor) isArrayType(expr ast.Expr) bool {
+	switch val := expr.(type) {
+	case *ast.ArrayType:
+		return true
+	case *ast.Ident:
+		return contains(v.arrayTypes, val.Name)
+	}
+	return false
+}
+
 // Hint stores the information about an occurrence of a slice that could be
 // preallocated.
 type Hint struct {
@@ -264,4 +281,24 @@ func (h Hint) StringFromFS(f *token.FileSet) string {
 	lineNumber := file.Position(h.Pos).Line
 
 	return fmt.Sprintf("%v:%v Consider preallocating %v", file.Name(), lineNumber, h.DeclaredSliceName)
+}
+
+func preAllocated(expr ast.Expr) bool {
+	callExpr, ok := expr.(*ast.CallExpr)
+	if !ok || !isMakeFunc(callExpr) {
+		return false
+	}
+	if len(callExpr.Args) > 2 {
+		literal, ok := callExpr.Args[len(callExpr.Args)-1].(*ast.BasicLit)
+		return ok && literal.Value != "0"
+	}
+	return false
+}
+
+func isMakeFunc(callExpr *ast.CallExpr) bool {
+	funcIdent, ok := callExpr.Fun.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	return funcIdent.Name == "make"
 }
