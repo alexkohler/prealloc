@@ -4,7 +4,7 @@ prealloc is a Go static analysis tool to find slice declarations that could pote
 
 ## Installation
 
-    go get -u github.com/alexkohler/prealloc
+    go install github.com/alexkohler/prealloc@latest
 
 ## Usage
 
