@@ -6,6 +6,7 @@ func main() {
 	var z, w, v, u, s []int
 	var t [][]int
 	var intChan chan int
+	var p, q = make([]int, 0, 10), make([]int, 0)
 
 	for i, r := range "Hello" {
 		// x is already pre-allocated
@@ -26,6 +27,12 @@ func main() {
 
 		// t is a candidate for pre-allocation
 		t = append(t, foo(i))
+
+		// p is not a candidate for pre-allocation since it has been pre-allocated
+		p = append(p, i)
+
+		// q is a candidate for pre-allocation
+		q = append(q, i)
 	}
 
 	for i := range intChan {
