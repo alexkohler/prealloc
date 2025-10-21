@@ -65,9 +65,9 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 				v.arrayTypes = append(v.arrayTypes, n.Name.Name)
 			}
 		}
-	case *ast.FuncDecl:
-		if n.Body != nil {
-			for _, stmt := range n.Body.List {
+	case *ast.BlockStmt:
+		if n.List != nil {
+			for _, stmt := range n.List {
 				switch s := stmt.(type) {
 				// Find non pre-allocated slices
 				case *ast.DeclStmt:
