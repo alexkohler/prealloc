@@ -34,6 +34,31 @@ func main() {
 	}
 
 	_ = v
+
+	{
+		var m []int
+		for i := range "Hello" {
+			// m is a candidate for preallocation
+			m = append(m, i)
+		}
+
+		if true {
+			var n []int
+			for i := range "Hello" {
+				// n is a candidate for preallocation
+				n = append(n, i)
+			}
+
+			for {
+				var o []int
+				for i := range "Hello" {
+					// o is a candidate for preallocation
+					o = append(o, i)
+				}
+				break
+			}
+		}
+	}
 }
 
 func foo(n int) []int {

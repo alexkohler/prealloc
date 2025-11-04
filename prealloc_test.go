@@ -31,6 +31,18 @@ func Test_checkForPreallocations(t *testing.T) {
 			Pos:               102,
 			DeclaredSliceName: "t",
 		},
+		pkg.Hint{
+			Pos:               820,
+			DeclaredSliceName: "m",
+		},
+		pkg.Hint{
+			Pos:               936,
+			DeclaredSliceName: "n",
+		},
+		pkg.Hint{
+			Pos:               1062,
+			DeclaredSliceName: "o",
+		},
 	}
 
 	if len(got) != len(want) {
