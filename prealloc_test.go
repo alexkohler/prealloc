@@ -20,51 +20,51 @@ func Test_checkForPreallocations(t *testing.T) {
 
 	want := []pkg.Hint{
 		pkg.Hint{
-			Pos:               63,
+			Pos:               78,
 			DeclaredSliceName: "y",
 		},
 		pkg.Hint{
-			Pos:               77,
+			Pos:               92,
 			DeclaredSliceName: "z",
 		},
 		pkg.Hint{
-			Pos:               102,
+			Pos:               117,
 			DeclaredSliceName: "t",
 		},
 		pkg.Hint{
-			Pos:               139,
+			Pos:               183,
 			DeclaredSliceName: "a",
 		},
 		pkg.Hint{
-			Pos:               174,
+			Pos:               218,
 			DeclaredSliceName: "c",
 		},
 		pkg.Hint{
-			Pos:               204,
+			Pos:               247,
 			DeclaredSliceName: "e",
 		},
 		pkg.Hint{
-			Pos:               252,
+			Pos:               295,
 			DeclaredSliceName: "g",
 		},
 		pkg.Hint{
-			Pos:               294,
+			Pos:               337,
 			DeclaredSliceName: "j",
 		},
 		pkg.Hint{
-			Pos:               339,
+			Pos:               382,
 			DeclaredSliceName: "l",
 		},
 		pkg.Hint{
-			Pos:               2036,
+			Pos:               2551,
 			DeclaredSliceName: "m",
 		},
 		pkg.Hint{
-			Pos:               2156,
+			Pos:               2671,
 			DeclaredSliceName: "n",
 		},
 		pkg.Hint{
-			Pos:               2278,
+			Pos:               2793,
 			DeclaredSliceName: "o",
 		},
 	}
