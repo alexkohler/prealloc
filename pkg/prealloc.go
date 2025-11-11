@@ -8,8 +8,7 @@ import (
 
 type sliceDeclaration struct {
 	name string
-	// sType string
-	genD *ast.GenDecl
+	pos  token.Pos
 }
 
 type returnsVisitor struct {
@@ -94,14 +93,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							if !ok {
 								continue
 							}
-							var isArrType bool
-							switch val := vSpec.Type.(type) {
-							case *ast.ArrayType:
-								isArrType = true
-							case *ast.Ident:
-								isArrType = contains(v.arrayTypes, val.Name)
-							}
-							if isArrType {
+							if v.isArrayType(vSpec.Type) {
 								if vSpec.Names != nil {
 									/*atID, ok := arrayType.Elt.(*ast.Ident)
 									if !ok {
@@ -110,9 +102,28 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 
 									// We should handle multiple slices declared on same line e.g. var mySlice1, mySlice2 []uint32
 									for _, vName := range vSpec.Names {
-										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name /*sType: atID.Name,*/, genD: genD})
+										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name, pos: genD.Pos()})
 									}
 								}
+							} else if len(vSpec.Names) == len(vSpec.Values) {
+								for i, val := range vSpec.Values {
+									if v.isMakeEmptyArray(val) {
+										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vSpec.Names[i].Name, pos: s.Pos()})
+									}
+								}
+							}
+						}
+					}
+
+				case *ast.AssignStmt:
+					if len(s.Lhs) == len(s.Rhs) {
+						for index := range s.Lhs {
+							ident, ok := s.Lhs[index].(*ast.Ident)
+							if !ok {
+								continue
+							}
+							if v.isMakeEmptyArray(s.Rhs[index]) {
+								v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: ident.Name, pos: s.Pos()})
 							}
 						}
 					}
@@ -153,6 +164,33 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 		}
 	}
 	return v
+}
+
+func (v *returnsVisitor) isMakeEmptyArray(e ast.Expr) bool {
+	call, ok := e.(*ast.CallExpr)
+	if !ok || len(call.Args) != 2 {
+		return false
+	}
+	ident, ok := call.Fun.(*ast.Ident)
+	if !ok || ident.Name != "make" {
+		return false
+	}
+	argLit, ok := call.Args[1].(*ast.BasicLit)
+	if !ok || argLit.Value != "0" {
+		return false
+	}
+	return v.isArrayType(call.Args[0])
+}
+
+func (v *returnsVisitor) isArrayType(e ast.Expr) bool {
+	switch val := e.(type) {
+	case *ast.ArrayType:
+		return true
+	case *ast.Ident:
+		return contains(v.arrayTypes, val.Name)
+	default:
+		return false
+	}
 }
 
 // handleLoops is a helper function to share the logic required for both *ast.RangeLoops and *ast.ForLoops
@@ -222,7 +260,7 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 						}*/
 
 						v.preallocHints = append(v.preallocHints, Hint{
-							Pos:               sliceDecl.genD.Pos(),
+							Pos:               sliceDecl.pos,
 							DeclaredSliceName: sliceDecl.name,
 						})
 					}

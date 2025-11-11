@@ -32,15 +32,23 @@ func Test_checkForPreallocations(t *testing.T) {
 			DeclaredSliceName: "t",
 		},
 		pkg.Hint{
-			Pos:               820,
+			Pos:               139,
+			DeclaredSliceName: "a",
+		},
+		pkg.Hint{
+			Pos:               187,
+			DeclaredSliceName: "c",
+		},
+		pkg.Hint{
+			Pos:               1228,
 			DeclaredSliceName: "m",
 		},
 		pkg.Hint{
-			Pos:               936,
+			Pos:               1348,
 			DeclaredSliceName: "n",
 		},
 		pkg.Hint{
-			Pos:               1062,
+			Pos:               1470,
 			DeclaredSliceName: "o",
 		},
 	}
