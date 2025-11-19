@@ -92,11 +92,12 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 		directoryList = append(directoryList, pwd)
 	} else {
 		for _, arg := range args {
-			if strings.HasSuffix(arg, "/...") && isDir(arg[:len(arg)-len("/...")]) {
+			switch {
+			case strings.HasSuffix(arg, "/...") && isDir(arg[:len(arg)-len("/...")]):
 				directoryList = append(directoryList, allPackagesInFS(arg)...)
-			} else if isDir(arg) {
+			case isDir(arg):
 				directoryList = append(directoryList, arg)
-			} else if exists(arg) {
+			case exists(arg):
 				if strings.HasSuffix(arg, ".go") {
 					fileMode = true
 					f, err := parser.ParseFile(fset, arg, nil, 0)
@@ -107,7 +108,7 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 				} else {
 					return nil, fmt.Errorf("invalid file %v specified", arg)
 				}
-			} else {
+			default:
 				// TODO clean this up a bit
 				imPaths := importPaths([]string{arg})
 				for _, importPath := range imPaths {

@@ -307,8 +307,7 @@ func inferAssignType(assign *ast.AssignStmt, name string) ast.Expr {
 					}
 				}
 			case *ast.ChanType:
-				switch index {
-				case 0:
+				if index == 0 {
 					return inferExprType(rhs.Value)
 				}
 			}
