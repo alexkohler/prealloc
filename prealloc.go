@@ -19,11 +19,9 @@ import (
 //  * Full make suggestion with type?
 //	* Test flag
 //  * Embedded ifs?
-//  * Use an import rather than the duplcated import.go
+//  * Use an import rather than the duplicated import.go
 
-const (
-	pwd = "./"
-)
+const pwd = "./"
 
 func usage() {
 	log.Printf("Usage of %s:\n", os.Args[0])
@@ -109,7 +107,7 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 					return nil, fmt.Errorf("invalid file %v specified", arg)
 				}
 			default:
-				// TODO clean this up a bit
+				// TODO: clean this up a bit
 				imPaths := importPaths([]string{arg})
 				for _, importPath := range imPaths {
 					pkg, err := build.Import(importPath, ".", 0)

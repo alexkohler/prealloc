@@ -24,7 +24,7 @@ type returnsVisitor struct {
 }
 
 func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) []Hint {
-	hints := []Hint{}
+	var hints []Hint
 	for _, f := range files {
 		retVis := &returnsVisitor{
 			simple:            simple,
@@ -33,7 +33,7 @@ func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) [
 		}
 		ast.Walk(retVis, f)
 		// if simple is true, then we actually have to check if we had returns
-		// inside of our loop. Otherwise, we can just report all messages.
+		// inside our loop. Otherwise, we can just report all messages.
 		if !retVis.simple || !retVis.returnsInsideOfLoop {
 			hints = append(hints, retVis.preallocHints...)
 		}
@@ -99,7 +99,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 										continue
 									}*/
 
-									// We should handle multiple slices declared on same line e.g. var mySlice1, mySlice2 []uint32
+									// We should handle multiple slices declared on the same line, e.g. var mySlice1, mySlice2 []uint32
 									for _, vName := range vSpec.Names {
 										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name, pos: genD.Pos()})
 									}
@@ -251,7 +251,7 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 
 				// e.g., `x = append(x, y...)`
 				// we should ignore this. Pre-allocating in this case
-				// is confusing, and is not possible in general.
+				// is confusing and is not possible in general.
 				if callExpr.Ellipsis.IsValid() {
 					continue
 				}
@@ -277,7 +277,7 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 			ifStmt := bodyStmt
 			if ifStmt.Body != nil {
 				for _, ifBodyStmt := range ifStmt.Body.List {
-					// TODO should probably handle embedded ifs here
+					// TODO: should probably handle embedded ifs here
 					switch /*ift :=*/ ifBodyStmt.(type) {
 					case *ast.BranchStmt, *ast.ReturnStmt:
 						v.returnsInsideOfLoop = true

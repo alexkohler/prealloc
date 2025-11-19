@@ -2,7 +2,7 @@ package main
 
 /*
 
-This file holds a direct copy of the import path matching code of
+This file holds a direct copy of the import path matching code from
 https://github.com/golang/go/blob/master/src/cmd/go/main.go. It can be
 replaced when https://golang.org/issue/8768 is resolved.
 
@@ -23,11 +23,10 @@ import (
 	"strings"
 )
 
-var buildContext = build.Default
-
 var (
-	goroot    = filepath.Clean(runtime.GOROOT())
-	gorootSrc = filepath.Join(goroot, "src")
+	buildContext = build.Default
+	goroot       = filepath.Clean(runtime.GOROOT())
+	gorootSrc    = filepath.Join(goroot, "src")
 )
 
 // importPathsNoDotExpansion returns the import paths to use for the given
@@ -136,7 +135,7 @@ func treeCanMatchPattern(pattern string) func(name string) bool {
 func allPackages(pattern string) []string {
 	pkgs := matchPackages(pattern)
 	if len(pkgs) == 0 {
-		fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
 	}
 	return pkgs
 }
@@ -247,7 +246,7 @@ func matchPackages(pattern string) []string {
 func allPackagesInFS(pattern string) []string {
 	pkgs := matchPackagesInFS(pattern)
 	if len(pkgs) == 0 {
-		fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
 	}
 	return pkgs
 }
