@@ -287,7 +287,6 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 			}
 
 		default:
-
 		}
 	}
 }

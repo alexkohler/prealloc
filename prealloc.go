@@ -110,7 +110,6 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 					return nil, fmt.Errorf("invalid file %v specified", arg)
 				}
 			} else {
-
 				// TODO clean this up a bit
 				imPaths := importPaths([]string{arg})
 				for _, importPath := range imPaths {
@@ -136,7 +135,6 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 						}
 						files = append(files, f)
 					}
-
 				}
 			}
 		}
