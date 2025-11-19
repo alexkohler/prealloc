@@ -8,7 +8,9 @@ import (
 	"github.com/alexkohler/prealloc/pkg"
 )
 
-func Test_checkForPreallocations(t *testing.T) {
+func TestCheckForPreallocations(t *testing.T) {
+	t.Parallel()
+
 	const filename = "testdata/sample.go"
 
 	fset := token.NewFileSet()
