@@ -53,7 +53,6 @@ func contains(slice []string, item string) bool {
 }
 
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
-
 	v.sliceDeclarations = nil
 	v.returnsInsideOfLoop = false
 
@@ -204,7 +203,6 @@ func (v *returnsVisitor) isArrayType(expr ast.Expr) bool {
 
 // handleLoops is a helper function to share the logic required for both *ast.RangeLoops and *ast.ForLoops
 func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
-
 	for _, stmt := range blockStmt.List {
 		switch bodyStmt := stmt.(type) {
 		case *ast.AssignStmt:
@@ -292,7 +290,6 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 
 		}
 	}
-
 }
 
 // Hint stores the information about an occurrence of a slice that could be

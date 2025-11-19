@@ -39,7 +39,6 @@ func usage() {
 }
 
 func main() {
-
 	// Remove log timestamp
 	log.SetFlags(0)
 
@@ -76,7 +75,6 @@ func checkForPreallocations(
 	fset *token.FileSet,
 	simple, includeRangeLoops, includeForLoops bool,
 ) ([]pkg.Hint, error) {
-
 	files, err := parseInput(args, fset)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse input %v", err)
@@ -97,14 +95,11 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 	} else {
 		for _, arg := range args {
 			if strings.HasSuffix(arg, "/...") && isDir(arg[:len(arg)-len("/...")]) {
-
 				for _, dirname := range allPackagesInFS(arg) {
 					directoryList = append(directoryList, dirname)
 				}
-
 			} else if isDir(arg) {
 				directoryList = append(directoryList, arg)
-
 			} else if exists(arg) {
 				if strings.HasSuffix(arg, ".go") {
 					fileMode = true
@@ -118,7 +113,7 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 				}
 			} else {
 
-				//TODO clean this up a bit
+				// TODO clean this up a bit
 				imPaths := importPaths([]string{arg})
 				for _, importPath := range imPaths {
 					pkg, err := build.Import(importPath, ".", 0)
