@@ -95,9 +95,7 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 	} else {
 		for _, arg := range args {
 			if strings.HasSuffix(arg, "/...") && isDir(arg[:len(arg)-len("/...")]) {
-				for _, dirname := range allPackagesInFS(arg) {
-					directoryList = append(directoryList, dirname)
-				}
+				directoryList = append(directoryList, allPackagesInFS(arg)...)
 			} else if isDir(arg) {
 				directoryList = append(directoryList, arg)
 			} else if exists(arg) {

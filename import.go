@@ -41,7 +41,7 @@ func importPathsNoDotExpansion(args []string) []string {
 		// as a courtesy to Windows developers, rewrite \ to /
 		// in command-line arguments.  Handles .\... and so on.
 		if filepath.Separator == '\\' {
-			a = strings.Replace(a, `\`, `/`, -1)
+			a = strings.ReplaceAll(a, `\`, `/`)
 		}
 
 		// Put argument in canonical form, but preserve leading ./.
@@ -86,7 +86,7 @@ func importPaths(args []string) []string {
 // is no other special syntax.
 func matchPattern(pattern string) func(name string) bool {
 	re := regexp.QuoteMeta(pattern)
-	re = strings.Replace(re, `\.\.\.`, `.*`, -1)
+	re = strings.ReplaceAll(re, `\.\.\.`, `.*`)
 	// Special case: foo/... matches foo too.
 	if strings.HasSuffix(re, `/.*`) {
 		re = re[:len(re)-len(`/.*`)] + `(/.*)?`
@@ -228,10 +228,8 @@ func matchPackages(pattern string) []string {
 				return nil
 			}
 			_, err = buildContext.ImportDir(path, 0)
-			if err != nil {
-				if _, noGo := err.(*build.NoGoError); noGo {
-					return nil
-				}
+			if _, noGo := err.(*build.NoGoError); noGo {
+				return nil
 			}
 			pkgs = append(pkgs, name)
 			return nil
