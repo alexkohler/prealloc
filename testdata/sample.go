@@ -1,11 +1,14 @@
 package main
 
+import "iter"
+
 func main() {
 	x := make([]rune, len("Hello"))
 	var y []rune
 	var z, w, v, u, s []int
 	var t [][]int
 	var intChan chan int
+	intChan2 := make(chan int)
 
 	var a = []int{}
 	var b = []int{0}
@@ -19,6 +22,7 @@ func main() {
 	var k = []int([]int{0})
 	l := []int(nil)
 	p := []int([]int{0})
+	var q, r, m []int
 
 	for i, r := range "Hello" {
 		// x is already pre-allocated
@@ -69,6 +73,23 @@ func main() {
 	for i := range intChan {
 		// s is not a candidate for pre-allocation since the range target is a channel
 		s = append(s, i)
+	}
+
+	for i := range intChan2 {
+		// q is not a candidate for pre-allocation since the range target is a channel
+		q = append(q, i)
+	}
+
+	var intSeq iter.Seq[int]
+	for i := range intSeq {
+		// r is not a candidate for pre-allocation since the range target is an iterator
+		r = append(r, i)
+	}
+
+	var intSeq2 iter.Seq2[int, int]
+	for i := range intSeq2 {
+		// m is not a candidate for pre-allocation since the range target is an iterator
+		m = append(m, i)
 	}
 
 	_ = v
