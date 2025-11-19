@@ -77,7 +77,7 @@ func checkForPreallocations(
 ) ([]pkg.Hint, error) {
 	files, err := parseInput(args, fset)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse input %v", err)
+		return nil, fmt.Errorf("could not parse input %w", err)
 	}
 
 	hints := pkg.Check(files, simple, includeRangeLoops, includeForLoops)

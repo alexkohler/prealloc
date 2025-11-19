@@ -11,6 +11,7 @@ It has been updated to follow upstream changes in a few ways.
 */
 
 import (
+	"errors"
 	"fmt"
 	"go/build"
 	"log"
@@ -182,7 +183,8 @@ func matchPackages(pattern string) []string {
 		}
 		_, err = buildContext.ImportDir(path, 0)
 		if err != nil {
-			if _, noGo := err.(*build.NoGoError); !noGo {
+			var noGoErr *build.NoGoError
+			if !errors.As(err, &noGoErr) {
 				log.Print(err)
 			}
 			return nil
@@ -228,7 +230,8 @@ func matchPackages(pattern string) []string {
 				return nil
 			}
 			_, err = buildContext.ImportDir(path, 0)
-			if _, noGo := err.(*build.NoGoError); noGo {
+			var noGoErr *build.NoGoError
+			if errors.As(err, &noGoErr) {
 				return nil
 			}
 			pkgs = append(pkgs, name)
@@ -296,7 +299,8 @@ func matchPackagesInFS(pattern string) []string {
 			return nil
 		}
 		if _, err = build.ImportDir(path, 0); err != nil {
-			if _, noGo := err.(*build.NoGoError); !noGo {
+			var noGoErr *build.NoGoError
+			if !errors.As(err, &noGoErr) {
 				log.Print(err)
 			}
 			return nil
