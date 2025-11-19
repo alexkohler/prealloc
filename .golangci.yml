@@ -1,0 +1,11 @@
+version: '2'
+linters:
+  enable:
+    - errorlint
+    - gochecknoinits
+    - gocritic
+    - paralleltest
+    - whitespace
+formatters:
+  enable:
+    - gofumpt
