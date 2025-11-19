@@ -25,11 +25,6 @@ const (
 	pwd = "./"
 )
 
-func init() {
-	// Ignore build flags
-	build.Default.UseAllFiles = true
-}
-
 func usage() {
 	log.Printf("Usage of %s:\n", os.Args[0])
 	log.Printf("\nprealloc [flags] # runs on package in current directory\n")
@@ -39,6 +34,9 @@ func usage() {
 }
 
 func main() {
+	// Ignore build flags
+	build.Default.UseAllFiles = true
+
 	// Remove log timestamp
 	log.SetFlags(0)
 
