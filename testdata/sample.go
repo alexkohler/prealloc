@@ -7,6 +7,19 @@ func main() {
 	var t [][]int
 	var intChan chan int
 
+	var a = []int{}
+	var b = []int{0}
+	c := []int{}
+	d := []int{0}
+	var e = make([]int, 0)
+	var f = make([]int, 1)
+	g := make([]int, 0)
+	h := make([]int, 1)
+	var j = []int(nil)
+	var k = []int([]int{0})
+	l := []int(nil)
+	p := []int([]int{0})
+
 	for i, r := range "Hello" {
 		// x is already pre-allocated
 		// y is a candidate for pre-allocation
@@ -26,6 +39,31 @@ func main() {
 
 		// t is a candidate for pre-allocation
 		t = append(t, foo(i))
+
+		// a is a candidate for pre-allocation
+		a = append(a, i)
+		// b is not a candidate for pre-allocation since it was initialized with values
+		b = append(b, i)
+		// c is a candidate for pre-allocation
+		c = append(c, i)
+		// d is not a candidate for pre-allocation since it was initialized with values
+		d = append(d, i)
+		// e is a candidate for pre-allocation
+		e = append(e, i)
+		// f is not a candidate for pre-allocation since it was initialized non-empty
+		f = append(f, i)
+		// g is a candidate for pre-allocation
+		g = append(g, i)
+		// h is not a candidate for pre-allocation since it was initialized non-empty
+		h = append(h, i)
+		// j is a candidate for pre-allocation
+		j = append(j, i)
+		// k is not a candidate for pre-allocation since it was converted from a non-empty slice
+		k = append(k, i)
+		// l is a candidate for pre-allocation
+		l = append(l, i)
+		// p is not a candidate for pre-allocation since it was converted from a non-empty slice
+		p = append(p, i)
 	}
 
 	for i := range intChan {
