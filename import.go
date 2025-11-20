@@ -2,7 +2,7 @@ package main
 
 /*
 
-This file holds a direct copy of the import path matching code of
+This file holds a direct copy of the import path matching code from
 https://github.com/golang/go/blob/master/src/cmd/go/main.go. It can be
 replaced when https://golang.org/issue/8768 is resolved.
 
@@ -11,6 +11,7 @@ It has been updated to follow upstream changes in a few ways.
 */
 
 import (
+	"errors"
 	"fmt"
 	"go/build"
 	"log"
@@ -22,11 +23,10 @@ import (
 	"strings"
 )
 
-var buildContext = build.Default
-
 var (
-	goroot    = filepath.Clean(runtime.GOROOT())
-	gorootSrc = filepath.Join(goroot, "src")
+	buildContext = build.Default
+	goroot       = filepath.Clean(runtime.GOROOT())
+	gorootSrc    = filepath.Join(goroot, "src")
 )
 
 // importPathsNoDotExpansion returns the import paths to use for the given
@@ -41,7 +41,7 @@ func importPathsNoDotExpansion(args []string) []string {
 		// as a courtesy to Windows developers, rewrite \ to /
 		// in command-line arguments.  Handles .\... and so on.
 		if filepath.Separator == '\\' {
-			a = strings.Replace(a, `\`, `/`, -1)
+			a = strings.ReplaceAll(a, `\`, `/`)
 		}
 
 		// Put argument in canonical form, but preserve leading ./.
@@ -86,7 +86,7 @@ func importPaths(args []string) []string {
 // is no other special syntax.
 func matchPattern(pattern string) func(name string) bool {
 	re := regexp.QuoteMeta(pattern)
-	re = strings.Replace(re, `\.\.\.`, `.*`, -1)
+	re = strings.ReplaceAll(re, `\.\.\.`, `.*`)
 	// Special case: foo/... matches foo too.
 	if strings.HasSuffix(re, `/.*`) {
 		re = re[:len(re)-len(`/.*`)] + `(/.*)?`
@@ -135,7 +135,7 @@ func treeCanMatchPattern(pattern string) func(name string) bool {
 func allPackages(pattern string) []string {
 	pkgs := matchPackages(pattern)
 	if len(pkgs) == 0 {
-		fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
 	}
 	return pkgs
 }
@@ -158,7 +158,7 @@ func matchPackages(pattern string) []string {
 
 	// Commands
 	cmd := filepath.Join(goroot, "src/cmd") + string(filepath.Separator)
-	filepath.Walk(cmd, func(path string, fi os.FileInfo, err error) error {
+	_ = filepath.Walk(cmd, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || !fi.IsDir() || path == cmd {
 			return nil
 		}
@@ -182,7 +182,8 @@ func matchPackages(pattern string) []string {
 		}
 		_, err = buildContext.ImportDir(path, 0)
 		if err != nil {
-			if _, noGo := err.(*build.NoGoError); !noGo {
+			var noGoErr *build.NoGoError
+			if !errors.As(err, &noGoErr) {
 				log.Print(err)
 			}
 			return nil
@@ -200,7 +201,7 @@ func matchPackages(pattern string) []string {
 		if pattern == "cmd" {
 			root += "cmd" + string(filepath.Separator)
 		}
-		filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
+		_ = filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
 			if err != nil || !fi.IsDir() || path == src {
 				return nil
 			}
@@ -228,10 +229,9 @@ func matchPackages(pattern string) []string {
 				return nil
 			}
 			_, err = buildContext.ImportDir(path, 0)
-			if err != nil {
-				if _, noGo := err.(*build.NoGoError); noGo {
-					return nil
-				}
+			var noGoErr *build.NoGoError
+			if errors.As(err, &noGoErr) {
+				return nil
 			}
 			pkgs = append(pkgs, name)
 			return nil
@@ -246,7 +246,7 @@ func matchPackages(pattern string) []string {
 func allPackagesInFS(pattern string) []string {
 	pkgs := matchPackagesInFS(pattern)
 	if len(pkgs) == 0 {
-		fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
 	}
 	return pkgs
 }
@@ -270,7 +270,7 @@ func matchPackagesInFS(pattern string) []string {
 	match := matchPattern(pattern)
 
 	var pkgs []string
-	filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+	_ = filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || !fi.IsDir() {
 			return nil
 		}
@@ -298,7 +298,8 @@ func matchPackagesInFS(pattern string) []string {
 			return nil
 		}
 		if _, err = build.ImportDir(path, 0); err != nil {
-			if _, noGo := err.(*build.NoGoError); !noGo {
+			var noGoErr *build.NoGoError
+			if !errors.As(err, &noGoErr) {
 				log.Print(err)
 			}
 			return nil

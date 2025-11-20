@@ -19,16 +19,9 @@ import (
 //  * Full make suggestion with type?
 //	* Test flag
 //  * Embedded ifs?
-//  * Use an import rather than the duplcated import.go
+//  * Use an import rather than the duplicated import.go
 
-const (
-	pwd = "./"
-)
-
-func init() {
-	// Ignore build flags
-	build.Default.UseAllFiles = true
-}
+const pwd = "./"
 
 func usage() {
 	log.Printf("Usage of %s:\n", os.Args[0])
@@ -39,6 +32,8 @@ func usage() {
 }
 
 func main() {
+	// Ignore build flags
+	build.Default.UseAllFiles = true
 
 	// Remove log timestamp
 	log.SetFlags(0)
@@ -76,10 +71,9 @@ func checkForPreallocations(
 	fset *token.FileSet,
 	simple, includeRangeLoops, includeForLoops bool,
 ) ([]pkg.Hint, error) {
-
 	files, err := parseInput(args, fset)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse input %v", err)
+		return nil, fmt.Errorf("could not parse input %w", err)
 	}
 
 	hints := pkg.Check(files, simple, includeRangeLoops, includeForLoops)
@@ -96,16 +90,12 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 		directoryList = append(directoryList, pwd)
 	} else {
 		for _, arg := range args {
-			if strings.HasSuffix(arg, "/...") && isDir(arg[:len(arg)-len("/...")]) {
-
-				for _, dirname := range allPackagesInFS(arg) {
-					directoryList = append(directoryList, dirname)
-				}
-
-			} else if isDir(arg) {
+			switch {
+			case strings.HasSuffix(arg, "/...") && isDir(arg[:len(arg)-len("/...")]):
+				directoryList = append(directoryList, allPackagesInFS(arg)...)
+			case isDir(arg):
 				directoryList = append(directoryList, arg)
-
-			} else if exists(arg) {
+			case exists(arg):
 				if strings.HasSuffix(arg, ".go") {
 					fileMode = true
 					f, err := parser.ParseFile(fset, arg, nil, 0)
@@ -116,9 +106,8 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 				} else {
 					return nil, fmt.Errorf("invalid file %v specified", arg)
 				}
-			} else {
-
-				//TODO clean this up a bit
+			default:
+				// TODO: clean this up a bit
 				imPaths := importPaths([]string{arg})
 				for _, importPath := range imPaths {
 					pkg, err := build.Import(importPath, ".", 0)
@@ -143,7 +132,6 @@ func parseInput(args []string, fset *token.FileSet) ([]*ast.File, error) {
 						}
 						files = append(files, f)
 					}
-
 				}
 			}
 		}

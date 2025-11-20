@@ -8,7 +8,9 @@ import (
 	"github.com/alexkohler/prealloc/pkg"
 )
 
-func Test_checkForPreallocations(t *testing.T) {
+func TestCheckForPreallocations(t *testing.T) {
+	t.Parallel()
+
 	const filename = "testdata/sample.go"
 
 	fset := token.NewFileSet()
@@ -19,51 +21,51 @@ func Test_checkForPreallocations(t *testing.T) {
 	}
 
 	want := []pkg.Hint{
-		pkg.Hint{
+		{
 			Pos:               78,
 			DeclaredSliceName: "y",
 		},
-		pkg.Hint{
+		{
 			Pos:               92,
 			DeclaredSliceName: "z",
 		},
-		pkg.Hint{
+		{
 			Pos:               117,
 			DeclaredSliceName: "t",
 		},
-		pkg.Hint{
+		{
 			Pos:               183,
 			DeclaredSliceName: "a",
 		},
-		pkg.Hint{
+		{
 			Pos:               218,
 			DeclaredSliceName: "c",
 		},
-		pkg.Hint{
+		{
 			Pos:               247,
 			DeclaredSliceName: "e",
 		},
-		pkg.Hint{
+		{
 			Pos:               295,
 			DeclaredSliceName: "g",
 		},
-		pkg.Hint{
+		{
 			Pos:               337,
 			DeclaredSliceName: "j",
 		},
-		pkg.Hint{
+		{
 			Pos:               382,
 			DeclaredSliceName: "l",
 		},
-		pkg.Hint{
+		{
 			Pos:               2551,
 			DeclaredSliceName: "m",
 		},
-		pkg.Hint{
+		{
 			Pos:               2671,
 			DeclaredSliceName: "n",
 		},
-		pkg.Hint{
+		{
 			Pos:               2793,
 			DeclaredSliceName: "o",
 		},
@@ -96,31 +98,31 @@ func Test_checkForPreallocations(t *testing.T) {
 }
 
 func BenchmarkSize10NoPreallocate(b *testing.B) {
-	existing := make([]int64, 10, 10)
+	existing := make([]int64, 10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Don't preallocate our initial slice
 		var init []int64
-		for _, element := range existing {
-			init = append(init, element)
+		for _, element := range existing { //nolint:staticcheck
+			init = append(init, element) //nolint:staticcheck
 		}
 	}
 }
 
 func BenchmarkSize10Preallocate(b *testing.B) {
-	existing := make([]int64, 10, 10)
+	existing := make([]int64, 10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
 		init := make([]int64, 0, len(existing))
-		for _, element := range existing {
-			init = append(init, element)
+		for _, element := range existing { //nolint:staticcheck
+			init = append(init, element) //nolint:staticcheck
 		}
 	}
 }
 
 func BenchmarkSize10PreallocateCopy(b *testing.B) {
-	existing := make([]int64, 10, 10)
+	existing := make([]int64, 10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
@@ -130,31 +132,31 @@ func BenchmarkSize10PreallocateCopy(b *testing.B) {
 }
 
 func BenchmarkSize200NoPreallocate(b *testing.B) {
-	existing := make([]int64, 200, 200)
+	existing := make([]int64, 200)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Don't preallocate our initial slice
 		var init []int64
-		for _, element := range existing {
-			init = append(init, element)
+		for _, element := range existing { //nolint:staticcheck
+			init = append(init, element) //nolint:staticcheck
 		}
 	}
 }
 
 func BenchmarkSize200Preallocate(b *testing.B) {
-	existing := make([]int64, 200, 200)
+	existing := make([]int64, 200)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
 		init := make([]int64, 0, len(existing))
-		for _, element := range existing {
-			init = append(init, element)
+		for _, element := range existing { //nolint:staticcheck
+			init = append(init, element) //nolint:staticcheck
 		}
 	}
 }
 
 func BenchmarkSize200PreallocateCopy(b *testing.B) {
-	existing := make([]int64, 200, 200)
+	existing := make([]int64, 200)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Preallocate our initial slice
