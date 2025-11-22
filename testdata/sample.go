@@ -4,23 +4,23 @@ import "iter"
 
 func main() {
 	x := make([]rune, len("Hello"))
-	var y []rune
-	var z, w, v, u, s []int
-	var t [][]int
+	var y []rune            // want "Consider preallocating y"
+	var z, w, v, u, s []int // want "Consider preallocating z"
+	var t [][]int           // want "Consider preallocating t"
 	var intChan chan int
 	intChan2 := make(chan int)
 
-	var a = []int{}
+	var a = []int{} // want "Consider preallocating a"
 	var b = []int{0}
-	c := []int{}
+	c := []int{} // want "Consider preallocating c"
 	d := []int{0}
-	var e = make([]int, 0)
+	var e = make([]int, 0) // want "Consider preallocating e"
 	var f = make([]int, 1)
-	g := make([]int, 0)
+	g := make([]int, 0) // want "Consider preallocating g"
 	h := make([]int, 1)
-	var j = []int(nil)
+	var j = []int(nil) // want "Consider preallocating j"
 	var k = []int([]int{0})
-	l := []int(nil)
+	l := []int(nil) // want "Consider preallocating l"
 	p := []int([]int{0})
 	var q, r, m []int
 
@@ -95,21 +95,21 @@ func main() {
 	_ = v
 
 	{
-		var m []int
+		var m []int // want "Consider preallocating m"
 		for i := range "Hello" {
 			// m is a candidate for preallocation
 			m = append(m, i)
 		}
 
 		if true {
-			var n []int
+			var n []int // want "Consider preallocating n"
 			for i := range "Hello" {
 				// n is a candidate for preallocation
 				n = append(n, i)
 			}
 
 			for {
-				var o []int
+				var o []int // want "Consider preallocating o"
 				for i := range "Hello" {
 					// o is a candidate for preallocation
 					o = append(o, i)
