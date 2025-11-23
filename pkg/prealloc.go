@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 type sliceDeclaration struct {
@@ -18,13 +20,13 @@ type returnsVisitor struct {
 	includeForLoops   bool
 	// visitor fields
 	sliceDeclarations   []*sliceDeclaration
-	preallocHints       []Hint
+	preallocHints       []analysis.Diagnostic
 	returnsInsideOfLoop bool
 	arrayTypes          []string
 }
 
-func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) []Hint {
-	var hints []Hint
+func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) []analysis.Diagnostic {
+	var hints []analysis.Diagnostic
 	for _, f := range files {
 		retVis := &returnsVisitor{
 			simple:            simple,
@@ -266,9 +268,9 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 							continue
 						}*/
 
-						v.preallocHints = append(v.preallocHints, Hint{
-							Pos:               sliceDecl.pos,
-							DeclaredSliceName: sliceDecl.name,
+						v.preallocHints = append(v.preallocHints, analysis.Diagnostic{
+							Pos:     sliceDecl.pos,
+							Message: fmt.Sprintf("Consider preallocating %s", sliceDecl.name),
 						})
 					}
 				}
@@ -289,22 +291,4 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 		default:
 		}
 	}
-}
-
-// Hint stores the information about an occurrence of a slice that could be
-// preallocated.
-type Hint struct {
-	Pos               token.Pos
-	DeclaredSliceName string
-}
-
-func (h Hint) String() string {
-	return fmt.Sprintf("%v: Consider preallocating %v", h.Pos, h.DeclaredSliceName)
-}
-
-func (h Hint) StringFromFS(f *token.FileSet) string {
-	file := f.File(h.Pos)
-	lineNumber := file.Position(h.Pos).Line
-
-	return fmt.Sprintf("%v:%v Consider preallocating %v", file.Name(), lineNumber, h.DeclaredSliceName)
 }
