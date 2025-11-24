@@ -17,7 +17,9 @@ func TestCheckForPreallocations(t *testing.T) {
 		t.Fatalf("Failed to get wd: %v", err)
 	}
 
-	analysistest.Run(t, filepath.Join(wd, "testdata"), NewAnalyzer(), ".")
+	a := NewAnalyzer()
+	_ = a.Flags.Set("forloops", "true")
+	analysistest.Run(t, filepath.Join(wd, "testdata"), a, ".")
 }
 
 func BenchmarkSize10NoPreallocate(b *testing.B) {
