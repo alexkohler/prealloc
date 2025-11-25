@@ -9,8 +9,9 @@ import (
 )
 
 type sliceDeclaration struct {
-	name string
-	pos  token.Pos
+	name     string
+	pos      token.Pos
+	eligible bool
 }
 
 type returnsVisitor struct {
@@ -131,6 +132,16 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 			}
 		}
 	}
+
+	for _, sliceDecl := range v.sliceDeclarations {
+		if sliceDecl.eligible {
+			v.preallocHints = append(v.preallocHints, analysis.Diagnostic{
+				Pos:     sliceDecl.pos,
+				Message: fmt.Sprintf("Consider preallocating %s", sliceDecl.name),
+			})
+		}
+	}
+
 	return v
 }
 
@@ -226,16 +237,8 @@ func (v *returnsVisitor) handleLoops(blockStmt *ast.BlockStmt) {
 					if sliceDecl.name == lhsIdent.Name {
 						// This is a potential mark, we just need to make sure there are no returns/continues in the
 						// range loop.
-						// now we just need to grab whatever we're ranging over
-						/*sxIdent, ok := s.X.(*ast.Ident)
-						if !ok {
-							continue
-						}*/
-
-						v.preallocHints = append(v.preallocHints, analysis.Diagnostic{
-							Pos:     sliceDecl.pos,
-							Message: fmt.Sprintf("Consider preallocating %s", sliceDecl.name),
-						})
+						sliceDecl.eligible = true
+						break
 					}
 				}
 			}
