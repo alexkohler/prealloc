@@ -61,22 +61,16 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							if !ok {
 								continue
 							}
-							if _, ok := inferExprType(vSpec.Type).(*ast.ArrayType); ok {
-								if vSpec.Names != nil {
-									/*atID, ok := arrayType.Elt.(*ast.Ident)
-									if !ok {
-										continue
-									}*/
-
-									// We should handle multiple slices declared on the same line, e.g. var mySlice1, mySlice2 []uint32
+							if len(vSpec.Values) == 0 {
+								if _, ok := inferExprType(vSpec.Type).(*ast.ArrayType); ok {
 									for _, vName := range vSpec.Names {
-										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name, pos: genD.Pos()})
+										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name, pos: s.Pos()})
 									}
 								}
-							} else if len(vSpec.Names) == len(vSpec.Values) {
-								for i, val := range vSpec.Values {
-									if isCreateEmptyArray(val) {
-										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vSpec.Names[i].Name, pos: s.Pos()})
+							} else {
+								for i, vName := range vSpec.Names {
+									if isCreateEmptyArray(vSpec.Values[i]) {
+										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vName.Name, pos: s.Pos()})
 									}
 								}
 							}
