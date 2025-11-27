@@ -34,11 +34,7 @@ func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) [
 			includeForLoops:   includeForLoops,
 		}
 		ast.Walk(retVis, f)
-		// if simple is true, then we actually have to check if we had returns
-		// inside our loop. Otherwise, we can just report all messages.
-		if !retVis.simple || !retVis.returnsInsideOfLoop {
-			hints = append(hints, retVis.preallocHints...)
-		}
+		hints = append(hints, retVis.preallocHints...)
 	}
 
 	return hints
@@ -57,6 +53,7 @@ func contains(slice []string, item string) bool {
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	v.sliceDeclarations = nil
 	v.returnsInsideOfLoop = false
+	origLen := len(v.preallocHints)
 
 	switch n := node.(type) {
 	case *ast.TypeSpec:
@@ -155,6 +152,12 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					}
 
 				default:
+				}
+
+				// If simple is true and we had returns inside our loop then discard hints and exit.
+				if v.simple && v.returnsInsideOfLoop {
+					v.preallocHints = v.preallocHints[:origLen]
+					return v
 				}
 			}
 		}
