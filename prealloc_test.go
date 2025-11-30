@@ -2,99 +2,24 @@ package main
 
 import (
 	"fmt"
-	"go/token"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/alexkohler/prealloc/pkg"
+	"golang.org/x/tools/go/analysis/analysistest"
 )
 
 func TestCheckForPreallocations(t *testing.T) {
 	t.Parallel()
 
-	const filename = "testdata/sample.go"
-
-	fset := token.NewFileSet()
-
-	got, err := checkForPreallocations([]string{filename}, fset, true, true, true)
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to get wd: %v", err)
 	}
 
-	want := []pkg.Hint{
-		{
-			Pos:               78,
-			DeclaredSliceName: "y",
-		},
-		{
-			Pos:               92,
-			DeclaredSliceName: "z",
-		},
-		{
-			Pos:               117,
-			DeclaredSliceName: "t",
-		},
-		{
-			Pos:               183,
-			DeclaredSliceName: "a",
-		},
-		{
-			Pos:               218,
-			DeclaredSliceName: "c",
-		},
-		{
-			Pos:               247,
-			DeclaredSliceName: "e",
-		},
-		{
-			Pos:               295,
-			DeclaredSliceName: "g",
-		},
-		{
-			Pos:               337,
-			DeclaredSliceName: "j",
-		},
-		{
-			Pos:               382,
-			DeclaredSliceName: "l",
-		},
-		{
-			Pos:               2551,
-			DeclaredSliceName: "m",
-		},
-		{
-			Pos:               2671,
-			DeclaredSliceName: "n",
-		},
-		{
-			Pos:               2793,
-			DeclaredSliceName: "o",
-		},
-	}
-
-	if len(got) != len(want) {
-		t.Fatalf("expected %d hints, but got %d: %+v", len(want), len(got), got)
-	}
-
-	for i := range got {
-		act, exp := got[i], want[i]
-
-		file := fset.File(act.Pos)
-
-		if file.Name() != filename {
-			t.Errorf("wrong hints[%d].Filename: %q (expected: %q)", i, file.Name(), filename)
-		}
-
-		actLineNumber := file.Position(act.Pos).Line
-		expLineNumber := file.Position(exp.Pos).Line
-
-		if actLineNumber != expLineNumber {
-			t.Errorf("wrong hints[%d].LineNumber: %d (expected: %d)", i, actLineNumber, expLineNumber)
-		}
-
-		if act.DeclaredSliceName != exp.DeclaredSliceName {
-			t.Errorf("wrong hints[%d].DeclaredSliceName: %q (expected: %q)", i, act.DeclaredSliceName, exp.DeclaredSliceName)
-		}
-	}
+	a := NewAnalyzer()
+	_ = a.Flags.Set("forloops", "true")
+	analysistest.Run(t, filepath.Join(wd, "testdata"), a, ".")
 }
 
 func BenchmarkSize10NoPreallocate(b *testing.B) {
