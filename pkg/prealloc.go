@@ -22,7 +22,6 @@ type returnsVisitor struct {
 	sliceDeclarations   []*sliceDeclaration
 	preallocHints       []analysis.Diagnostic
 	returnsInsideOfLoop bool
-	arrayTypes          []string
 }
 
 func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) []analysis.Diagnostic {
@@ -40,31 +39,14 @@ func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) [
 	return hints
 }
 
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	v.sliceDeclarations = nil
 	v.returnsInsideOfLoop = false
 	origLen := len(v.preallocHints)
 
-	switch n := node.(type) {
-	case *ast.TypeSpec:
-		if _, ok := n.Type.(*ast.ArrayType); ok {
-			if n.Name != nil {
-				v.arrayTypes = append(v.arrayTypes, n.Name.Name)
-			}
-		}
-	case *ast.BlockStmt:
-		if n.List != nil {
-			for _, stmt := range n.List {
+	if blockStmt, ok := node.(*ast.BlockStmt); ok {
+		if blockStmt.List != nil {
+			for _, stmt := range blockStmt.List {
 				switch s := stmt.(type) {
 				// Find non pre-allocated slices
 				case *ast.DeclStmt:
@@ -72,26 +54,13 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					if !ok {
 						continue
 					}
-					if genD.Tok == token.TYPE {
-						for _, spec := range genD.Specs {
-							tSpec, ok := spec.(*ast.TypeSpec)
-							if !ok {
-								continue
-							}
-
-							if _, ok := tSpec.Type.(*ast.ArrayType); ok {
-								if tSpec.Name != nil {
-									v.arrayTypes = append(v.arrayTypes, tSpec.Name.Name)
-								}
-							}
-						}
-					} else if genD.Tok == token.VAR {
+					if genD.Tok == token.VAR {
 						for _, spec := range genD.Specs {
 							vSpec, ok := spec.(*ast.ValueSpec)
 							if !ok {
 								continue
 							}
-							if v.isArrayType(vSpec.Type) {
+							if _, ok := inferExprType(vSpec.Type).(*ast.ArrayType); ok {
 								if vSpec.Names != nil {
 									/*atID, ok := arrayType.Elt.(*ast.Ident)
 									if !ok {
@@ -105,7 +74,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 								}
 							} else if len(vSpec.Names) == len(vSpec.Values) {
 								for i, val := range vSpec.Values {
-									if v.isCreateEmptyArray(val) {
+									if isCreateEmptyArray(val) {
 										v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: vSpec.Names[i].Name, pos: s.Pos()})
 									}
 								}
@@ -120,7 +89,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 							if !ok {
 								continue
 							}
-							if v.isCreateEmptyArray(s.Rhs[index]) {
+							if isCreateEmptyArray(s.Rhs[index]) {
 								v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: ident.Name, pos: s.Pos()})
 							}
 						}
@@ -165,11 +134,12 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-func (v *returnsVisitor) isCreateEmptyArray(expr ast.Expr) bool {
+func isCreateEmptyArray(expr ast.Expr) bool {
 	switch e := expr.(type) {
 	case *ast.CompositeLit:
 		// []any{}
-		return len(e.Elts) == 0 && v.isArrayType(e.Type)
+		_, ok := inferExprType(e.Type).(*ast.ArrayType)
+		return ok && len(e.Elts) == 0
 	case *ast.CallExpr:
 		switch len(e.Args) {
 		case 1:
@@ -178,7 +148,8 @@ func (v *returnsVisitor) isCreateEmptyArray(expr ast.Expr) bool {
 			if !ok || arg.Name != "nil" {
 				return false
 			}
-			return v.isArrayType(e.Fun)
+			_, ok = inferExprType(e.Fun).(*ast.ArrayType)
+			return ok
 		case 2:
 			// make([]any, 0)
 			ident, ok := e.Fun.(*ast.Ident)
@@ -189,21 +160,11 @@ func (v *returnsVisitor) isCreateEmptyArray(expr ast.Expr) bool {
 			if !ok || arg.Value != "0" {
 				return false
 			}
-			return v.isArrayType(e.Args[0])
+			_, ok = inferExprType(e.Args[0]).(*ast.ArrayType)
+			return ok
 		}
 	}
 	return false
-}
-
-func (v *returnsVisitor) isArrayType(expr ast.Expr) bool {
-	switch e := expr.(type) {
-	case *ast.ArrayType:
-		return true
-	case *ast.Ident:
-		return contains(v.arrayTypes, e.Name)
-	default:
-		return false
-	}
 }
 
 // handleLoops is a helper function to share the logic required for both *ast.RangeLoops and *ast.ForLoops
