@@ -27,3 +27,13 @@ func rangeStringArg(s string) {
 		x = append(x, i)
 	}
 }
+
+func rangeTwice() {
+	var x []int // want "Consider preallocating x"
+	for i := range 5 {
+		x = append(x, i)
+	}
+	for i := range "Hello" {
+		x = append(x, i)
+	}
+}
