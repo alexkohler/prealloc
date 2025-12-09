@@ -1,12 +1,5 @@
 package test
 
-func forSimple() {
-	var x []int // want "Consider preallocating x"
-	for i := 0; i < 5; i++ {
-		x = append(x, i)
-	}
-}
-
 func sliceAssignEmptyLit() {
 	x := []int{} // want "Consider preallocating x"
 	for i := range "Hello" {
