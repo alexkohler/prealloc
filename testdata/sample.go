@@ -83,13 +83,3 @@ func sliceVarTypedAlreadyAllocated() {
 		x = append(x, i)
 	}
 }
-
-func breakInsideLoop() {
-	var x []int
-	for i := range "Hello" {
-		if true {
-			break
-		}
-		x = append(x, i)
-	}
-}

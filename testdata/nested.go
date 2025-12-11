@@ -2,7 +2,7 @@ package test
 
 // nested statement blocks should be processed to any depth
 
-func nest() {
+func nestedBlocks() {
 	{
 		var x []int // want "Consider preallocating x"
 		for i := range "Hello" {
@@ -22,6 +22,15 @@ func nest() {
 				}
 				break
 			}
+		}
+	}
+}
+
+func nestedLoops() {
+	var x []int // want "Consider preallocating x"
+	for i := range "Hello" {
+		for j := range "Hello" {
+			x = append(x, i, j)
 		}
 	}
 }

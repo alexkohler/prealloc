@@ -201,7 +201,6 @@ BenchmarkSize200PreallocateCopy-4   	 2000000	       807 ns/op	    1792 B/op	   
 ## TODO
 
 - Configuration on whether or not to run on test files.
-- Support for embedded ifs (currently, prealloc will only find breaks/returns/continues/gotos if they are in a single if block, I'd like to expand this to supporting multiple if blocks in the future).
 - Globbing support (e.g. prealloc *.go).
 
 ## Contributing
