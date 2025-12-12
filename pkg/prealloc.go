@@ -114,31 +114,41 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 			if !ok {
 				continue
 			}
-			if s.Tok == token.DEFINE {
-				if isCreateEmptyArray(s.Rhs[i]) {
-					v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: ident.Name, declPos: s.Pos(), level: v.level})
-				}
+			if isCreateEmptyArray(s.Rhs[i]) {
+				v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: ident.Name, declPos: s.Pos(), level: v.level})
 			} else {
-				callExpr, ok := s.Rhs[i].(*ast.CallExpr)
-				if !ok || len(callExpr.Args) < 2 {
-					continue
-				}
-				if funIdent, ok := callExpr.Fun.(*ast.Ident); !ok || funIdent.Name != "append" {
-					continue
-				}
-				rhsIdent, ok := callExpr.Args[0].(*ast.Ident)
-				if !ok {
-					continue
-				}
-				for i := len(v.sliceDeclarations) - 1; i >= 0; i-- {
-					sliceDecl := v.sliceDeclarations[i]
-					if sliceDecl.name == ident.Name {
-						if callExpr.Ellipsis.IsValid() || ident.Name != rhsIdent.Name || sliceDecl.hasReturn || sliceDecl.level != v.level {
-							sliceDecl.exclude = true
-						} else {
-							sliceDecl.appendPos = s.Pos()
+				switch expr := s.Rhs[i].(type) {
+				case *ast.Ident:
+					if s.Tok != token.ASSIGN || expr.Name != "nil" {
+						continue
+					}
+					for _, sliceDecl := range v.sliceDeclarations {
+						if sliceDecl.name == ident.Name {
+							v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: ident.Name, declPos: s.Pos(), level: v.level})
+							break
 						}
-						break
+					}
+				case *ast.CallExpr:
+					if len(expr.Args) < 2 {
+						continue
+					}
+					if funIdent, ok := expr.Fun.(*ast.Ident); !ok || funIdent.Name != "append" {
+						continue
+					}
+					rhsIdent, ok := expr.Args[0].(*ast.Ident)
+					if !ok {
+						continue
+					}
+					for i := len(v.sliceDeclarations) - 1; i >= 0; i-- {
+						sliceDecl := v.sliceDeclarations[i]
+						if sliceDecl.name == ident.Name {
+							if expr.Ellipsis.IsValid() || ident.Name != rhsIdent.Name || sliceDecl.hasReturn || sliceDecl.level != v.level {
+								sliceDecl.exclude = true
+							} else {
+								sliceDecl.appendPos = s.Pos()
+							}
+							break
+						}
 					}
 				}
 			}

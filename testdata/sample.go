@@ -83,3 +83,16 @@ func sliceVarTypedAlreadyAllocated() {
 		x = append(x, i)
 	}
 }
+
+func sliceVarReused() {
+	var x []int // want "Consider preallocating x"
+	x = append(x, 0)
+	x = nil // want "Consider preallocating x"
+	x = append(x, 0)
+	x = []int{} // want "Consider preallocating x"
+	x = append(x, 0)
+	x = []int(nil) // want "Consider preallocating x"
+	x = append(x, 0)
+	x = make([]int, 0) // want "Consider preallocating x"
+	x = append(x, 0)
+}
