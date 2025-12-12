@@ -13,7 +13,6 @@ import (
 // Support: (in order of priority)
 //  * Full make suggestion with type?
 //	* Test flag
-//  * Embedded ifs?
 //  * Use an import rather than the duplicated import.go
 
 func main() {
