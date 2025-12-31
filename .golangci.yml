@@ -4,6 +4,7 @@ linters:
     - errorlint
     - gochecknoinits
     - gocritic
+    - modernize
     - paralleltest
     - whitespace
 formatters:
