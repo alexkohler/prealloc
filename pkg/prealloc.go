@@ -187,13 +187,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					if len(expr.Args) >= 2 && !sliceDecl.hasReturn && sliceDecl.level == v.level {
 						if funIdent, ok := expr.Fun.(*ast.Ident); ok && funIdent.Name == "append" {
 							if rhsIdent, ok := expr.Args[0].(*ast.Ident); ok && ident.Name == rhsIdent.Name {
-								var countExpr ast.Expr
-								if expr.Ellipsis.IsValid() {
-									countExpr = appendEllipsisCount(expr.Args[1])
-								} else {
-									countExpr = intExpr(len(expr.Args) - 1)
-								}
-								v.sliceAppends = append(v.sliceAppends, &sliceAppend{index: declIdx, countExpr: countExpr})
+								v.sliceAppends = append(v.sliceAppends, &sliceAppend{index: declIdx, countExpr: appendCount(expr)})
 								continue
 							}
 						}
@@ -335,15 +329,17 @@ func isCreateArray(expr ast.Expr) ast.Expr {
 	return nil
 }
 
-func appendEllipsisCount(expr ast.Expr) ast.Expr {
-	if call, ok := expr.(*ast.CallExpr); ok && len(call.Args) == 1 {
-		if _, ok := call.Fun.(*ast.ArrayType); ok {
-			expr = call.Args[0]
+func sliceLength(expr ast.Expr) ast.Expr {
+	if call, ok := expr.(*ast.CallExpr); ok {
+		if len(call.Args) == 1 {
+			if _, ok := call.Fun.(*ast.ArrayType); ok {
+				expr = call.Args[0]
+			}
+		} else if len(call.Args) >= 2 {
+			if funIdent, ok := call.Fun.(*ast.Ident); ok && funIdent.Name == "append" {
+				return addIntExpr(sliceLength(call.Args[0]), appendCount(call))
+			}
 		}
-	}
-
-	if hasCall(expr) {
-		return nil
 	}
 
 	switch xType := inferExprType(expr).(type) {
@@ -363,6 +359,10 @@ func appendEllipsisCount(expr ast.Expr) ast.Expr {
 		return nil
 	}
 
+	if hasCall(expr) {
+		return nil
+	}
+
 	if slice, ok := expr.(*ast.SliceExpr); ok {
 		high := slice.High
 		if high == nil {
@@ -379,9 +379,15 @@ func appendEllipsisCount(expr ast.Expr) ast.Expr {
 
 func rangeLoopCount(stmt *ast.RangeStmt) (ast.Expr, bool) {
 	x := stmt.X
-	if call, ok := x.(*ast.CallExpr); ok && len(call.Args) == 1 {
-		if _, ok := call.Fun.(*ast.ArrayType); ok {
-			x = call.Args[0]
+	if call, ok := x.(*ast.CallExpr); ok {
+		if len(call.Args) == 1 {
+			if _, ok := call.Fun.(*ast.ArrayType); ok {
+				x = call.Args[0]
+			}
+		} else if len(call.Args) >= 2 {
+			if funIdent, ok := call.Fun.(*ast.Ident); ok && funIdent.Name == "append" {
+				return addIntExpr(sliceLength(call.Args[0]), appendCount(call)), true
+			}
 		}
 	}
 
@@ -448,6 +454,13 @@ func rangeLoopCount(stmt *ast.RangeStmt) (ast.Expr, bool) {
 	}
 
 	return &ast.CallExpr{Fun: ast.NewIdent("len"), Args: []ast.Expr{x}}, true
+}
+
+func appendCount(expr *ast.CallExpr) ast.Expr {
+	if expr.Ellipsis.IsValid() {
+		return sliceLength(expr.Args[1])
+	}
+	return intExpr(len(expr.Args) - 1)
 }
 
 func forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {

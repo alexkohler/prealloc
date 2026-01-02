@@ -116,3 +116,11 @@ func appendMultipleRangeStringVar() {
 		x = append(x, i, i)
 	}
 }
+
+func appendAppend() {
+	s := "Hello"
+	var x []int // want "Consider preallocating x with capacity 2 \\* len\\(s\\)$"
+	for i := range s {
+		x = append(x, append([]int{i}, i)...)
+	}
+}

@@ -243,3 +243,33 @@ func rangeSliceSuffix() {
 		x = append(x, i)
 	}
 }
+
+func rangeAppendLit() {
+	var x []int // want "Consider preallocating x with capacity 4$"
+	for i := range append([]int{1, 2}, 3, 4) {
+		x = append(x, i)
+	}
+}
+
+func rangeAppendLitEllipsisLit() {
+	var x []int // want "Consider preallocating x with capacity 4$"
+	for i := range append([]int{1, 2}, []int{3, 4}...) {
+		x = append(x, i)
+	}
+}
+
+func rangeAppendVar() {
+	var y []int
+	var x []int // want "Consider preallocating x with capacity len\\(y\\) \\+ 2$"
+	for i := range append(y, 3, 4) {
+		x = append(x, i)
+	}
+}
+
+func rangeAppendLitEllipsisVar() {
+	var y []int
+	var x []int // want "Consider preallocating x with capacity 2 \\+ len\\(y\\)$"
+	for i := range append([]int{1, 2}, y...) {
+		x = append(x, i)
+	}
+}
