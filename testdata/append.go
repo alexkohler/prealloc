@@ -9,7 +9,7 @@ func appendNothing() {
 
 func appendToAnother() {
 	var x []int
-	var y []int
+	var y []int // want "Consider preallocating y with capacity 5$"
 	x = append(x, 0)
 	for i := range "Hello" {
 		x = append(y, i)
@@ -131,4 +131,22 @@ func appendAppend() {
 	for i := range s {
 		x = append(x, append([]int{i}, i)...)
 	}
+}
+
+func appendDetached() {
+	var x []int // want "Consider preallocating x with capacity 6$"
+	x = append(x, 1, 2, 3)
+	_ = append(x, 4, 5, 6)
+}
+
+func appendMultipleDetached() {
+	var x []int
+	_ = append(x, 1, 2, 3)
+	_ = append(x, 4, 5, 6)
+}
+
+func appendAfterDetached() {
+	var x []int
+	_ = append(x, 1, 2, 3)
+	x = append(x, 4, 5, 6)
 }
