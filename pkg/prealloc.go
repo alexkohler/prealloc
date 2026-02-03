@@ -229,9 +229,12 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					return v
 				}
 
-				if sliceDecl.hasReturn || sliceDecl.level != v.level || sliceDecl.detached {
+				switch {
+				case sliceDecl.hasReturn || sliceDecl.level != v.level || sliceDecl.detached:
 					sliceDecl.exclude = true
-				} else {
+				case s.Ellipsis.IsValid() && hasAny(s, v.loopVars):
+					sliceDecl.exclude = true
+				default:
 					if sliceDecl.assigning {
 						sliceDecl.assigning = false
 					} else {
