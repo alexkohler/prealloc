@@ -17,6 +17,8 @@ type sliceDeclaration struct {
 	lenExpr   ast.Expr // Initial length of this slice.
 	exclude   bool     // Whether this slice has been disqualified due to an unsupported pattern.
 	hasReturn bool     // Whether a return statement has been found after the first append. Any subsequent appends will disqualify this slice in simple mode.
+	assigning bool     // Whether this slice is currently being assigned the result of an append.
+	detached  bool     // Whether this slice has been appended without reassignment. Will be disqualified if this happens more than once.
 }
 
 type sliceAppend struct {
@@ -199,13 +201,44 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					if len(expr.Args) >= 2 && !sliceDecl.hasReturn && sliceDecl.level == v.level {
 						if funIdent, ok := expr.Fun.(*ast.Ident); ok && funIdent.Name == "append" {
 							if rhsIdent, ok := expr.Args[0].(*ast.Ident); ok && ident.Name == rhsIdent.Name {
-								v.sliceAppends = append(v.sliceAppends, &sliceAppend{index: declIdx, countExpr: appendCount(expr)})
+								sliceDecl.assigning = true
 								continue
 							}
 						}
 					}
 				}
 				sliceDecl.exclude = true
+			}
+		}
+
+	case *ast.CallExpr:
+		if funIdent, ok := s.Fun.(*ast.Ident); ok && funIdent.Name == "append" && len(s.Args) >= 2 {
+			if rhsIdent, ok := s.Args[0].(*ast.Ident); ok {
+				declIdx := -1
+				for i := len(v.sliceDeclarations) - 1; i >= 0; i-- {
+					if v.sliceDeclarations[i].name == rhsIdent.Name {
+						declIdx = i
+						break
+					}
+				}
+				if declIdx < 0 {
+					return v
+				}
+				sliceDecl := v.sliceDeclarations[declIdx]
+				if sliceDecl.exclude {
+					return v
+				}
+
+				if sliceDecl.hasReturn || sliceDecl.level != v.level || sliceDecl.detached {
+					sliceDecl.exclude = true
+				} else {
+					if sliceDecl.assigning {
+						sliceDecl.assigning = false
+					} else {
+						sliceDecl.detached = true
+					}
+					v.sliceAppends = append(v.sliceAppends, &sliceAppend{index: declIdx, countExpr: appendCount(s)})
+				}
 			}
 		}
 
