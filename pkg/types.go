@@ -277,6 +277,10 @@ func inferValueType(value *ast.ValueSpec, name string) ast.Expr {
 		return inferExprType(value.Values[index])
 	}
 
+	if len(value.Values) == 0 {
+		return nil
+	}
+
 	return inferAssignMultiType(value.Values[0], index)
 }
 
@@ -327,6 +331,10 @@ func inferAssignType(assign *ast.AssignStmt, name string) ast.Expr {
 
 	if len(assign.Lhs) == len(assign.Rhs) {
 		return inferExprType(assign.Rhs[index])
+	}
+
+	if len(assign.Rhs) == 0 {
+		return nil
 	}
 
 	return inferAssignMultiType(assign.Rhs[0], index)
