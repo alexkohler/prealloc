@@ -86,6 +86,14 @@ func appendEllipsisTypeConvert() {
 	}
 }
 
+func appendEllipsisUsesLoopVar() {
+	var x []byte
+	var y []string
+	for i := range 5 {
+		x = append(x, y[i]...)
+	}
+}
+
 func appendMultipleCallsRange() {
 	var x []int // want "Consider preallocating x with capacity 10$"
 	for i := range 5 {
@@ -126,11 +134,8 @@ func appendMultipleRangeStringVar() {
 }
 
 func appendAppend() {
-	s := "Hello"
-	var x []int // want "Consider preallocating x with capacity 2 \\* len\\(s\\)$"
-	for i := range s {
-		x = append(x, append([]int{i}, i)...)
-	}
+	var x []int // want "Consider preallocating x with capacity 4$"
+	x = append(x, append([]int{1, 2}, 3, 4)...)
 }
 
 func appendDetached() {
