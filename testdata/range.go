@@ -183,7 +183,7 @@ func rangeIntTypeConvert() {
 }
 
 func rangeMultiple() {
-	var x []int // want "Consider preallocating x with capacity 5 \\+ n \\+ len\\(s\\) \\+ \\(n - m \\+ 1\\)$"
+	var x []int // want "Consider preallocating x with capacity 5 \\+ n \\+ len\\(s\\) \\+ \\(n \\+ 1 - m\\)$"
 	for i := range 5 {
 		x = append(x, i)
 	}

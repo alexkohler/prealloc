@@ -132,7 +132,7 @@ func forIncVarToMaxExclusive() {
 
 func forIncVarToMaxInclusive() {
 	m := 0
-	var x []int // want "Consider preallocating x with capacity 5 - m \\+ 1$"
+	var x []int // want "Consider preallocating x with capacity 6 - m$"
 	for i := m; i <= 5; i++ {
 		x = append(x, i)
 	}
@@ -158,8 +158,26 @@ func forIncVarToVarExclusive() {
 func forIncVarToVarInclusive() {
 	m := 0
 	n := 5
-	var x []int // want "Consider preallocating x with capacity n - m \\+ 1$"
+	var x []int // want "Consider preallocating x with capacity n \\+ 1 - m$"
 	for i := m; i <= n; i++ {
+		x = append(x, i)
+	}
+}
+
+func forIncVarToVarMinusOneInclusive() {
+	m := 0
+	n := 5
+	var x []int // want "Consider preallocating x with capacity n - m$"
+	for i := m; i <= n-1; i++ {
+		x = append(x, i)
+	}
+}
+
+func forDecVarMinusOneToVarInclusive() {
+	m := 0
+	n := 5
+	var x []int // want "Consider preallocating x with capacity n - m$"
+	for i := n - 1; i >= m; i-- {
 		x = append(x, i)
 	}
 }

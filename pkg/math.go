@@ -39,6 +39,23 @@ func addIntExpr(x, y ast.Expr) ast.Expr {
 	return &ast.BinaryExpr{X: x, Op: token.ADD, Y: y}
 }
 
+func incrementIntExpr(x ast.Expr) ast.Expr {
+	if x == nil {
+		return nil
+	}
+
+	xInt, xOK := intValue(x)
+	if xOK {
+		return intExpr(xInt + 1)
+	}
+	if binary, ok := x.(*ast.BinaryExpr); ok && binary.Op == token.SUB {
+		if yInt, yOK := intValue(binary.Y); yOK && yInt == 1 {
+			return binary.X
+		}
+	}
+	return &ast.BinaryExpr{X: x, Op: token.ADD, Y: intExpr(1)}
+}
+
 func subIntExpr(x, y ast.Expr) ast.Expr {
 	if binary, ok := x.(*ast.BinaryExpr); ok && binary.Op == token.ADD {
 		if exprEqual(binary.X, y) {
