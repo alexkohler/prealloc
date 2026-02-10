@@ -164,6 +164,15 @@ func forIncVarToVarInclusive() {
 	}
 }
 
+func forIncVarToVarCommonOffset() {
+	m := 1
+	n := 5
+	var x []int // want "Consider preallocating x with capacity n$"
+	for i := m; i < m+n; i++ {
+		x = append(x, i)
+	}
+}
+
 func forIterateZeroTimes() {
 	var x []int
 	for i := 0; i < 0; i++ {

@@ -40,6 +40,15 @@ func addIntExpr(x, y ast.Expr) ast.Expr {
 }
 
 func subIntExpr(x, y ast.Expr) ast.Expr {
+	if binary, ok := x.(*ast.BinaryExpr); ok && binary.Op == token.ADD {
+		if exprEqual(binary.X, y) {
+			return binary.Y
+		}
+		if exprEqual(binary.Y, y) {
+			return binary.X
+		}
+	}
+
 	if unary, ok := y.(*ast.UnaryExpr); ok && unary.Op == token.SUB {
 		y = unary.X
 	} else {
