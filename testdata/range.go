@@ -273,3 +273,17 @@ func rangeAppendLitEllipsisVar() {
 		x = append(x, i)
 	}
 }
+
+func rangeSelf() {
+	var x []int
+	for i := range x {
+		x = append(x, i)
+	}
+}
+
+func rangeSelfCap() {
+	var x []int
+	for i := range cap(x) {
+		x = append(x, i)
+	}
+}
