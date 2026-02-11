@@ -661,11 +661,11 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 		lower, upper = upper, lower
 	}
 
-	countExpr := subIntExpr(upper, lower)
 	if op == token.LEQ || op == token.GEQ {
-		countExpr = addIntExpr(countExpr, intExpr(1))
+		upper = incrementIntExpr(upper)
 	}
-	return countExpr, true
+
+	return subIntExpr(upper, lower), true
 }
 
 func forLoopUpperBound(expr ast.Expr, name string) (ast.Expr, token.Token) {
