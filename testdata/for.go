@@ -259,3 +259,17 @@ func forUpperLimitFunc() {
 		x = append(x, i)
 	}
 }
+
+func forUpperSelfCap() {
+	var x []int
+	for i := 0; i < cap(x); i++ {
+		x = append(x, i)
+	}
+}
+
+func forLowerSelfCap() {
+	var x []int
+	for i := cap(x); i < 5; i++ {
+		x = append(x, i)
+	}
+}

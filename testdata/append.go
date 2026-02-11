@@ -94,6 +94,13 @@ func appendEllipsisUsesLoopVar() {
 	}
 }
 
+func appendEllipsisSelf() {
+	var x []int
+	for range 5 {
+		x = append(x, x...)
+	}
+}
+
 func appendMultipleCallsRange() {
 	var x []int // want "Consider preallocating x with capacity 10$"
 	for i := range 5 {

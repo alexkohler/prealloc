@@ -229,19 +229,24 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					return v
 				}
 
-				switch {
-				case sliceDecl.hasReturn || sliceDecl.level != v.level || sliceDecl.detached:
+				if sliceDecl.hasReturn || sliceDecl.level != v.level || sliceDecl.detached {
 					sliceDecl.exclude = true
-				case s.Ellipsis.IsValid() && hasAny(s, v.loopVars):
-					sliceDecl.exclude = true
-				default:
-					if sliceDecl.assigning {
-						sliceDecl.assigning = false
-					} else {
-						sliceDecl.detached = true
-					}
-					v.sliceAppends = append(v.sliceAppends, &sliceAppend{index: declIdx, countExpr: appendCount(s)})
+					return v
 				}
+
+				countExpr := appendCount(s)
+				if countExpr != nil && (hasAny(countExpr, v.loopVars) || hasVarReference(countExpr, sliceDecl.name)) {
+					// exclude slice if append count references it
+					sliceDecl.exclude = true
+					return v
+				}
+
+				if sliceDecl.assigning {
+					sliceDecl.assigning = false
+				} else {
+					sliceDecl.detached = true
+				}
+				v.sliceAppends = append(v.sliceAppends, &sliceAppend{index: declIdx, countExpr: countExpr})
 			}
 		}
 
@@ -324,17 +329,26 @@ func (v *returnsVisitor) walkRange(stmt *ast.RangeStmt) ast.Visitor {
 			}
 		}
 	} else {
-		for i := range v.sliceDeclarations {
+		for i, sliceDecl := range v.sliceDeclarations {
+			if sliceDecl.exclude {
+				continue
+			}
 			prev := -1
 			for j := len(v.sliceAppends) - 1; j >= appendIdx; j-- {
 				if v.sliceAppends[j] != nil && v.sliceAppends[j].index == i {
-					if prev >= 0 {
+					if prev < 0 {
+						if loopCountExpr == nil {
+							// make appends indeterminate if the loop count is indeterminate
+							v.sliceAppends[j].countExpr = nil
+						} else if hasVarReference(loopCountExpr, sliceDecl.name) {
+							// exclude slice if loop count references it
+							sliceDecl.exclude = true
+							break
+						}
+					} else {
 						// consolidate appends to the same slice
 						v.sliceAppends[j].countExpr = addIntExpr(v.sliceAppends[j].countExpr, v.sliceAppends[prev].countExpr)
 						v.sliceAppends[prev] = nil
-					} else if loopCountExpr == nil {
-						// make appends indeterminate if the loop count is indeterminate
-						v.sliceAppends[j].countExpr = nil
 					}
 					prev = j
 				}
@@ -383,17 +397,26 @@ func (v *returnsVisitor) walkFor(stmt *ast.ForStmt) ast.Visitor {
 			}
 		}
 	} else {
-		for i := range v.sliceDeclarations {
+		for i, sliceDecl := range v.sliceDeclarations {
+			if sliceDecl.exclude {
+				continue
+			}
 			prev := -1
 			for j := len(v.sliceAppends) - 1; j >= appendIdx; j-- {
 				if v.sliceAppends[j] != nil && v.sliceAppends[j].index == i {
-					if prev >= 0 {
+					if prev < 0 {
+						if loopCountExpr == nil {
+							// make appends indeterminate if the loop count is indeterminate
+							v.sliceAppends[j].countExpr = nil
+						} else if hasVarReference(loopCountExpr, sliceDecl.name) {
+							// exclude slice if loop count references it
+							sliceDecl.exclude = true
+							break
+						}
+					} else {
 						// consolidate appends to the same slice
 						v.sliceAppends[j].countExpr = addIntExpr(v.sliceAppends[j].countExpr, v.sliceAppends[prev].countExpr)
 						v.sliceAppends[prev] = nil
-					} else if loopCountExpr == nil {
-						// make appends indeterminate if the loop count is indeterminate
-						v.sliceAppends[j].countExpr = nil
 					}
 					prev = j
 				}
@@ -751,6 +774,34 @@ func hasCall(expr ast.Expr) bool {
 				}
 			}
 			found = true
+		}
+		return !found
+	})
+	return found
+}
+
+func hasVarReference(expr ast.Expr, name string) bool {
+	found := false
+	ast.Inspect(expr, func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.SelectorExpr:
+			// process target expression, ignore field selector
+			found = hasVarReference(n.X, name)
+			return false
+		case *ast.CallExpr:
+			// process args, ignore function name
+			for _, arg := range n.Args {
+				if found = hasVarReference(arg, name); found {
+					break
+				}
+			}
+			return false
+		case *ast.KeyValueExpr:
+			// process value, ignore key
+			found = hasVarReference(n.Value, name)
+			return false
+		case *ast.Ident:
+			found = n.Name == name
 		}
 		return !found
 	})
