@@ -291,3 +291,14 @@ func forLowerSelfCap() {
 		x = append(x, i)
 	}
 }
+
+func forLinkedListTraversal() {
+	type node struct {
+		next *node
+		id   int
+	}
+	var x []int
+	for n := new(node); n != nil; n = n.next {
+		x = append(x, n.id)
+	}
+}

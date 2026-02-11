@@ -617,17 +617,23 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 		return nil, false
 	}
 
-	initStmt, ok := stmt.Init.(*ast.AssignStmt)
-	if !ok {
-		return nil, true
-	}
-
 	postStmt, ok := stmt.Post.(*ast.IncDecStmt)
 	if !ok {
-		return nil, true
+		if assign, ok := stmt.Post.(*ast.AssignStmt); ok {
+			switch assign.Tok {
+			case token.ADD_ASSIGN, token.SUB_ASSIGN, token.MUL_ASSIGN, token.QUO_ASSIGN, token.REM_ASSIGN, token.SHL_ASSIGN, token.SHR_ASSIGN:
+				return nil, true
+			}
+		}
+		return nil, false
 	}
 
 	postIdent, ok := postStmt.X.(*ast.Ident)
+	if !ok {
+		return nil, true
+	}
+
+	initStmt, ok := stmt.Init.(*ast.AssignStmt)
 	if !ok {
 		return nil, true
 	}
