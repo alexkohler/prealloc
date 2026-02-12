@@ -39,7 +39,7 @@ func addIntExpr(x, y ast.Expr) ast.Expr {
 	return &ast.BinaryExpr{X: x, Op: token.ADD, Y: y}
 }
 
-func incrementIntExpr(x ast.Expr) ast.Expr {
+func incIntExpr(x ast.Expr) ast.Expr {
 	if x == nil {
 		return nil
 	}
@@ -102,6 +102,26 @@ func mulIntExpr(x, y ast.Expr) ast.Expr {
 		}
 	}
 	return &ast.BinaryExpr{X: x, Op: token.MUL, Y: y}
+}
+
+func divIntExpr(x, y ast.Expr) (ast.Expr, bool) {
+	if x == nil || y == nil {
+		return nil, false
+	}
+
+	xInt, xOK := intValue(x)
+	yInt, yOK := intValue(y)
+
+	if xOK && yOK {
+		return intExpr(xInt / yInt), xInt%yInt != 0
+	}
+	if yOK && yInt == 0 {
+		return nil, false
+	}
+	if (xOK && xInt == 0) || (yOK && yInt == 1) {
+		return x, false
+	}
+	return &ast.BinaryExpr{X: x, Op: token.QUO, Y: y}, true
 }
 
 func intExpr(n int) *ast.BasicLit {

@@ -302,3 +302,46 @@ func forLinkedListTraversal() {
 		x = append(x, n.id)
 	}
 }
+
+func forIncSkipLit() {
+	var x []int // want "Consider preallocating x with capacity 5$"
+	for i := 0; i < 10; i += 2 {
+		x = append(x, i)
+	}
+}
+
+func forIncSkipLitRemainder() {
+	var x []int // want "Consider preallocating x with capacity 4$"
+	for i := 0; i < 10; i += 3 {
+		x = append(x, i)
+	}
+}
+
+func forDecSkipLit() {
+	var x []int // want "Consider preallocating x with capacity 5$"
+	for i := 10; i > 0; i -= 2 {
+		x = append(x, i)
+	}
+}
+
+func forIncSkipVar() {
+	n := 10
+	var x []int // want "Consider preallocating x with capacity n/2 \\+ 1$"
+	for i := 0; i < n; i += 2 {
+		x = append(x, i)
+	}
+}
+
+func forIncSkipBinaryLit() {
+	var x []int // want "Consider preallocating x with capacity 5$"
+	for i := 0; i < 10; i = i + 2 {
+		x = append(x, i)
+	}
+}
+
+func forIncSkipBinaryLitBackwards() {
+	var x []int // want "Consider preallocating x with capacity 5$"
+	for i := 0; i < 10; i = 2 + i {
+		x = append(x, i)
+	}
+}
