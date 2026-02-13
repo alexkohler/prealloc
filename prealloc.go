@@ -47,11 +47,6 @@ func NewAnalyzer() *analysis.Analyzer {
 }
 
 func (p *prealloc) run(pass *analysis.Pass) (any, error) {
-	hints := pkg.Check(pass.Files, p.simple, p.includeRangeLoops, p.includeForLoops)
-
-	for _, hint := range hints {
-		pass.Report(hint)
-	}
-
+	pkg.Check(pass, p.simple, p.includeRangeLoops, p.includeForLoops)
 	return nil, nil
 }

@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/token"
+	"go/types"
 	"strconv"
 
 	"golang.org/x/tools/go/analysis"
@@ -31,27 +32,27 @@ type returnsVisitor struct {
 	simple            bool
 	includeRangeLoops bool
 	includeForLoops   bool
+	pass              *analysis.Pass
 	// visitor fields
 	sliceDeclarations []*sliceDeclaration
 	sliceAppends      []*sliceAppend
 	loopVars          []ast.Expr
-	preallocHints     []analysis.Diagnostic
 	level             int  // Current nesting level. Loops do not increment the level.
 	hasReturn         bool // Whether a return statement has been found. Slices appended before and after a return are disqualified in simple mode.
 	hasGoto           bool // Whether a goto statement has been found. Goto disqualifies pending and subsequent slices in simple mode.
 	hasBranch         bool // Whether a branch statement has been found. Loops with branch statements are unsupported in simple mode.
 }
 
-func Check(files []*ast.File, simple, includeRangeLoops, includeForLoops bool) []analysis.Diagnostic {
+func Check(pass *analysis.Pass, simple, includeRangeLoops, includeForLoops bool) {
 	retVis := &returnsVisitor{
 		simple:            simple,
 		includeRangeLoops: includeRangeLoops,
 		includeForLoops:   includeForLoops,
+		pass:              pass,
 	}
-	for _, f := range files {
+	for _, f := range pass.Files {
 		ast.Walk(retVis, f)
 	}
-	return retVis.preallocHints
 }
 
 func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
@@ -118,7 +119,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					buf.Truncate(undo)
 				}
 			}
-			v.preallocHints = append(v.preallocHints, analysis.Diagnostic{
+			v.pass.Report(analysis.Diagnostic{
 				Pos:     sliceDecl.pos,
 				Message: buf.String(),
 			})
@@ -139,15 +140,21 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 		return nil
 
 	case *ast.ValueSpec:
-		_, isArrayType := inferExprType(s.Type).(*ast.ArrayType)
+		var isArrayOrSlice bool
+		if t := v.pass.TypesInfo.TypeOf(s.Type); t != nil {
+			switch t.Underlying().(type) {
+			case *types.Array, *types.Slice:
+				isArrayOrSlice = true
+			}
+		}
 		for i, name := range s.Names {
 			var lenExpr ast.Expr
 			if i >= len(s.Values) {
-				if !isArrayType {
+				if !isArrayOrSlice {
 					continue
 				}
 				lenExpr = intExpr(0)
-			} else if lenExpr = isCreateArray(s.Values[i]); lenExpr == nil {
+			} else if lenExpr = v.isCreateArray(s.Values[i]); lenExpr == nil {
 				if id, ok := s.Values[i].(*ast.Ident); !ok || id.Name != "nil" {
 					continue
 				}
@@ -176,7 +183,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 			if !ok {
 				continue
 			}
-			if lenExpr := isCreateArray(s.Rhs[i]); lenExpr != nil {
+			if lenExpr := v.isCreateArray(s.Rhs[i]); lenExpr != nil {
 				v.sliceDeclarations = append(v.sliceDeclarations, &sliceDeclaration{name: ident.Name, pos: s.Pos(), level: v.level, lenExpr: lenExpr})
 			} else {
 				declIdx := -1
@@ -234,7 +241,7 @@ func (v *returnsVisitor) Visit(node ast.Node) ast.Visitor {
 					return v
 				}
 
-				countExpr := appendCount(s)
+				countExpr := v.appendCount(s)
 				if countExpr != nil && (hasAny(countExpr, v.loopVars) || hasVarReference(countExpr, sliceDecl.name)) {
 					// exclude slice if append count references it
 					sliceDecl.exclude = true
@@ -438,12 +445,15 @@ func (v *returnsVisitor) walkSwitchSelect(body *ast.BlockStmt) ast.Visitor {
 	return nil
 }
 
-func isCreateArray(expr ast.Expr) ast.Expr {
+func (v *returnsVisitor) isCreateArray(expr ast.Expr) ast.Expr {
 	switch e := expr.(type) {
 	case *ast.CompositeLit:
 		// []any{...}
-		if _, ok := inferExprType(e.Type).(*ast.ArrayType); ok {
-			return intExpr(len(e.Elts))
+		if t := v.pass.TypesInfo.TypeOf(e); t != nil {
+			switch t.Underlying().(type) {
+			case *types.Array, *types.Slice:
+				return intExpr(len(e.Elts))
+			}
 		}
 	case *ast.CallExpr:
 		switch len(e.Args) {
@@ -453,8 +463,10 @@ func isCreateArray(expr ast.Expr) ast.Expr {
 			if !ok || arg.Name != "nil" {
 				return nil
 			}
-			if _, ok = inferExprType(e.Fun).(*ast.ArrayType); ok {
-				return intExpr(0)
+			if t := v.pass.TypesInfo.TypeOf(e.Fun); t != nil {
+				if _, ok := t.Underlying().(*types.Slice); ok {
+					return intExpr(0)
+				}
 			}
 		case 2:
 			// make([]any, n)
@@ -480,37 +492,41 @@ func (v *returnsVisitor) rangeLoopCount(stmt *ast.RangeStmt) (ast.Expr, bool) {
 			}
 		} else if len(call.Args) >= 2 {
 			if funIdent, ok := call.Fun.(*ast.Ident); ok && funIdent.Name == "append" {
-				return addIntExpr(sliceLength(call.Args[0]), appendCount(call)), true
+				return addIntExpr(v.sliceLength(call.Args[0]), v.appendCount(call)), true
 			}
 		}
 	}
 
-	xType := inferExprType(x)
+	xType := v.pass.TypesInfo.TypeOf(x)
+	if xType != nil {
+		xType = xType.Underlying()
+	}
 
 	switch xType := xType.(type) {
-	case *ast.ChanType, *ast.FuncType:
+	case *types.Chan, *types.Signature:
 		return nil, false
-	case *ast.ArrayType:
+	case *types.Array:
+		if _, ok := stmt.X.(*ast.CompositeLit); ok && xType.Len() >= 0 {
+			return intExpr(int(xType.Len())), true
+		}
+	case *types.Slice:
 		if lit, ok := stmt.X.(*ast.CompositeLit); ok {
-			if xType.Len != nil {
-				return xType.Len, true
-			}
 			return intExpr(len(lit.Elts)), true
 		}
-	case *ast.MapType:
+	case *types.Map:
 		if lit, ok := x.(*ast.CompositeLit); ok {
 			return intExpr(len(lit.Elts)), true
 		}
-	case *ast.StarExpr:
-		if xType, ok := xType.X.(*ast.ArrayType); !ok || xType.Len == nil {
+	case *types.Pointer:
+		if xType, ok := xType.Elem().(*types.Array); !ok {
 			return nil, true
 		} else if unary, ok := x.(*ast.UnaryExpr); ok && unary.Op == token.AND {
-			if _, ok := unary.X.(*ast.CompositeLit); ok {
-				return xType.Len, true
+			if _, ok := unary.X.(*ast.CompositeLit); ok && xType.Len() >= 0 {
+				return intExpr(int(xType.Len())), true
 			}
 		}
-	case *ast.Ident:
-		if xType.Name == "string" {
+	case *types.Basic:
+		if xType.Info()&types.IsString != 0 {
 			if lit, ok := x.(*ast.BasicLit); ok && lit.Kind == token.STRING {
 				if str, err := strconv.Unquote(lit.Value); err == nil {
 					return intExpr(len(str)), true
@@ -525,12 +541,11 @@ func (v *returnsVisitor) rangeLoopCount(stmt *ast.RangeStmt) (ast.Expr, bool) {
 		return nil, true
 	}
 
-	if ident, ok := xType.(*ast.Ident); ok {
-		switch ident.Name {
-		case "byte", "rune", "int", "int8", "int16", "int32", "int64",
-			"uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
+	if xType, ok := xType.(*types.Basic); ok {
+		switch {
+		case xType.Info()&types.IsInteger != 0:
 			return x, true
-		case "string":
+		case xType.Info()&types.IsString != 0:
 		default:
 			return nil, true
 		}
@@ -550,14 +565,14 @@ func (v *returnsVisitor) rangeLoopCount(stmt *ast.RangeStmt) (ast.Expr, bool) {
 	return &ast.CallExpr{Fun: ast.NewIdent("len"), Args: []ast.Expr{x}}, true
 }
 
-func appendCount(expr *ast.CallExpr) ast.Expr {
+func (v *returnsVisitor) appendCount(expr *ast.CallExpr) ast.Expr {
 	if expr.Ellipsis.IsValid() {
-		return sliceLength(expr.Args[1])
+		return v.sliceLength(expr.Args[1])
 	}
 	return intExpr(len(expr.Args) - 1)
 }
 
-func sliceLength(expr ast.Expr) ast.Expr {
+func (v *returnsVisitor) sliceLength(expr ast.Expr) ast.Expr {
 	if call, ok := expr.(*ast.CallExpr); ok {
 		if len(call.Args) == 1 {
 			if _, ok := call.Fun.(*ast.ArrayType); ok {
@@ -565,18 +580,22 @@ func sliceLength(expr ast.Expr) ast.Expr {
 			}
 		} else if len(call.Args) >= 2 {
 			if funIdent, ok := call.Fun.(*ast.Ident); ok && funIdent.Name == "append" {
-				return addIntExpr(sliceLength(call.Args[0]), appendCount(call))
+				return addIntExpr(v.sliceLength(call.Args[0]), v.appendCount(call))
 			}
 		}
 	}
 
-	switch xType := inferExprType(expr).(type) {
-	case *ast.ArrayType:
+	xType := v.pass.TypesInfo.TypeOf(expr)
+	if xType == nil {
+		return nil
+	}
+	switch xType := xType.Underlying().(type) {
+	case *types.Array, *types.Slice:
 		if lit, ok := expr.(*ast.CompositeLit); ok {
 			return intExpr(len(lit.Elts))
 		}
-	case *ast.Ident:
-		if xType.Name == "string" {
+	case *types.Basic:
+		if xType.Info()&types.IsString != 0 {
 			if lit, ok := expr.(*ast.BasicLit); ok && lit.Kind == token.STRING {
 				if str, err := strconv.Unquote(lit.Value); err == nil {
 					return intExpr(len(str))

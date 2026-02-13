@@ -202,7 +202,7 @@ func rangeMultiple() {
 }
 
 func rangeMultipleWithPartialUnresolvedCapacity() {
-	var x []int // want "Consider preallocating x$"
+	var x []int // want "Consider preallocating x with capacity 5 \\+ len\\(s\\)$"
 	for i := range 5 {
 		x = append(x, i)
 	}

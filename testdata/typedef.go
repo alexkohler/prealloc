@@ -55,7 +55,7 @@ func inlineTypeDefEmptyLit() {
 }
 
 func externalTypeDefEmptyLit() {
-	var x IntSlice
+	var x IntSlice // want "Consider preallocating x with capacity 5$"
 	for i := range "Hello" {
 		x = append(x, i)
 	}
