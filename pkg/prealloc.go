@@ -617,20 +617,58 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 		return nil, false
 	}
 
-	postStmt, ok := stmt.Post.(*ast.IncDecStmt)
-	if !ok {
-		if assign, ok := stmt.Post.(*ast.AssignStmt); ok {
-			switch assign.Tok {
-			case token.ADD_ASSIGN, token.SUB_ASSIGN, token.MUL_ASSIGN, token.QUO_ASSIGN, token.REM_ASSIGN, token.SHL_ASSIGN, token.SHR_ASSIGN:
-				return nil, true
-			}
+	var postIdent *ast.Ident
+	var reverse bool
+	var step ast.Expr
+	switch s := stmt.Post.(type) {
+	case *ast.IncDecStmt:
+		var ok bool
+		if postIdent, ok = s.X.(*ast.Ident); !ok {
+			return nil, true
 		}
-		return nil, false
-	}
+		reverse = s.Tok == token.DEC
+		step = intExpr(1)
+	case *ast.AssignStmt:
+		if len(s.Lhs) != 1 || len(s.Rhs) != 1 {
+			return nil, true
+		}
+		var ok bool
+		if postIdent, ok = s.Lhs[0].(*ast.Ident); !ok {
+			return nil, true
+		}
+		step = s.Rhs[0]
+		switch s.Tok {
+		case token.ADD_ASSIGN:
+		case token.SUB_ASSIGN:
+			reverse = true
+		case token.MUL_ASSIGN, token.QUO_ASSIGN, token.REM_ASSIGN, token.SHL_ASSIGN, token.SHR_ASSIGN:
+			return nil, true
+		case token.ASSIGN:
+			if binary, ok := s.Rhs[0].(*ast.BinaryExpr); ok {
+				switch binary.Op {
+				case token.ADD:
+				case token.SUB:
+					reverse = true
+				default:
+					return nil, false
+				}
 
-	postIdent, ok := postStmt.X.(*ast.Ident)
-	if !ok {
-		return nil, true
+				switch {
+				case exprEqual(binary.X, postIdent):
+					step = binary.Y
+				case exprEqual(binary.Y, postIdent):
+					step = binary.X
+				default:
+					return nil, false
+				}
+			} else {
+				return nil, false
+			}
+		default:
+			return nil, false
+		}
+	default:
+		return nil, false
 	}
 
 	initStmt, ok := stmt.Init.(*ast.AssignStmt)
@@ -656,7 +694,7 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 
 	upper, op := forLoopUpperBound(stmt.Cond, postIdent.Name)
 
-	if postStmt.Tok == token.INC {
+	if !reverse {
 		if op == token.GTR || op == token.GEQ {
 			return nil, false
 		}
@@ -668,10 +706,15 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 	}
 
 	if op == token.LEQ || op == token.GEQ {
-		upper = incrementIntExpr(upper)
+		upper = incIntExpr(upper)
 	}
 
-	return subIntExpr(upper, lower), true
+	countExpr, rounded := divIntExpr(subIntExpr(upper, lower), step)
+	if rounded {
+		// extra capacity in case non-unary step increment is rounded down
+		countExpr = incIntExpr(countExpr)
+	}
+	return countExpr, true
 }
 
 func forLoopUpperBound(expr ast.Expr, name string) (ast.Expr, token.Token) {
