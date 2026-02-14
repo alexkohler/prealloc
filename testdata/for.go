@@ -345,3 +345,17 @@ func forIncSkipBinaryLitBackwards() {
 		x = append(x, i)
 	}
 }
+
+func forMultiVarsInc() {
+	var x []int // want "Consider preallocating x with capacity 20$"
+	for i, j := 0, 0; i < 10; i++ {
+		x = append(x, i, j)
+	}
+}
+
+func forMultiVarsBinary() {
+	var x []int // want "Consider preallocating x with capacity 20$"
+	for i, j := 0, 0; i < 10; i, j = i+1, j+2 {
+		x = append(x, i, j)
+	}
+}

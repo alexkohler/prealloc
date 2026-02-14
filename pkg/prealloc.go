@@ -636,104 +636,96 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 		return nil, false
 	}
 
-	var postIdent *ast.Ident
-	var reverse bool
-	var step ast.Expr
-	switch s := stmt.Post.(type) {
-	case *ast.IncDecStmt:
-		var ok bool
-		if postIdent, ok = s.X.(*ast.Ident); !ok {
-			return nil, true
-		}
-		reverse = s.Tok == token.DEC
-		step = intExpr(1)
-	case *ast.AssignStmt:
-		if len(s.Lhs) != 1 || len(s.Rhs) != 1 {
-			return nil, true
-		}
-		var ok bool
-		if postIdent, ok = s.Lhs[0].(*ast.Ident); !ok {
-			return nil, true
-		}
-		step = s.Rhs[0]
-		switch s.Tok {
-		case token.ADD_ASSIGN:
-		case token.SUB_ASSIGN:
-			reverse = true
-		case token.MUL_ASSIGN, token.QUO_ASSIGN, token.REM_ASSIGN, token.SHL_ASSIGN, token.SHR_ASSIGN:
-			return nil, true
-		case token.ASSIGN:
-			if binary, ok := s.Rhs[0].(*ast.BinaryExpr); ok {
-				switch binary.Op {
-				case token.ADD:
-				case token.SUB:
-					reverse = true
-				default:
-					return nil, false
-				}
+	initAssign, ok := stmt.Init.(*ast.AssignStmt)
+	if !ok || len(initAssign.Lhs) != len(initAssign.Rhs) {
+		return nil, true
+	}
 
-				switch {
-				case exprEqual(binary.X, postIdent):
-					step = binary.Y
-				case exprEqual(binary.Y, postIdent):
-					step = binary.X
+	for i, lhs := range initAssign.Lhs {
+		initIdent, ok := lhs.(*ast.Ident)
+		if !ok {
+			continue
+		}
+
+		var reverse bool
+		var step ast.Expr
+		switch s := stmt.Post.(type) {
+		case *ast.IncDecStmt:
+			if isIdentName(s.X, initIdent.Name) {
+				reverse = s.Tok == token.DEC
+				step = intExpr(1)
+			}
+
+		case *ast.AssignStmt:
+			if len(s.Lhs) != len(s.Rhs) {
+				return nil, true
+			}
+
+			for i, lhs := range s.Lhs {
+				if !isIdentName(lhs, initIdent.Name) {
+					continue
+				}
+				switch s.Tok {
+				case token.ADD_ASSIGN, token.SUB_ASSIGN:
+					step = s.Rhs[i]
+					reverse = s.Tok == token.SUB_ASSIGN
+				case token.ASSIGN:
+					if rhsBinary, ok := s.Rhs[i].(*ast.BinaryExpr); ok {
+						reverse = s.Tok == token.SUB
+						if rhsBinary.Op == token.ADD || reverse {
+							if isIdentName(rhsBinary.X, initIdent.Name) {
+								step = rhsBinary.Y
+							} else if isIdentName(rhsBinary.Y, initIdent.Name) {
+								step = rhsBinary.X
+							}
+						}
+					} else {
+						return nil, false
+					}
 				default:
 					return nil, false
 				}
-			} else {
+				if step != nil {
+					break
+				}
+			}
+		}
+
+		if step == nil {
+			continue
+		}
+
+		lower := initAssign.Rhs[i]
+		if hasCall(lower) {
+			continue // NATO: this should trigger another attempt
+		}
+
+		upper, op := forLoopUpperBound(stmt.Cond, initIdent.Name)
+
+		if !reverse {
+			if op == token.GTR || op == token.GEQ {
 				return nil, false
 			}
-		default:
-			return nil, false
+		} else {
+			if op == token.LSS || op == token.LEQ {
+				return nil, false
+			}
+			lower, upper = upper, lower
 		}
-	default:
-		return nil, false
-	}
 
-	initStmt, ok := stmt.Init.(*ast.AssignStmt)
-	if !ok {
-		return nil, true
-	}
-
-	index := -1
-	for i := range initStmt.Lhs {
-		if ident, ok := initStmt.Lhs[i].(*ast.Ident); ok && ident.Name == postIdent.Name {
-			index = i
-			break
+		if op == token.LEQ || op == token.GEQ {
+			upper = incIntExpr(upper)
 		}
-	}
-	if index < 0 {
-		return nil, true
-	}
 
-	lower := initStmt.Rhs[index]
-	if hasCall(lower) {
-		return nil, true
-	}
-
-	upper, op := forLoopUpperBound(stmt.Cond, postIdent.Name)
-
-	if !reverse {
-		if op == token.GTR || op == token.GEQ {
-			return nil, false
+		countExpr, rounded := divIntExpr(subIntExpr(upper, lower), step)
+		if rounded {
+			// extra capacity in case non-unary step increment is rounded down
+			countExpr = incIntExpr(countExpr)
 		}
-	} else {
-		if op == token.LSS || op == token.LEQ {
-			return nil, false
-		}
-		lower, upper = upper, lower
+		return countExpr, true
 	}
 
-	if op == token.LEQ || op == token.GEQ {
-		upper = incIntExpr(upper)
-	}
-
-	countExpr, rounded := divIntExpr(subIntExpr(upper, lower), step)
-	if rounded {
-		// extra capacity in case non-unary step increment is rounded down
-		countExpr = incIntExpr(countExpr)
-	}
-	return countExpr, true
+	return nil, true
 }
 
 func forLoopUpperBound(expr ast.Expr, name string) (ast.Expr, token.Token) {
@@ -800,6 +792,11 @@ func forLoopUpperBound(expr ast.Expr, name string) (ast.Expr, token.Token) {
 	}
 
 	return nil, 0
+}
+
+func isIdentName(expr ast.Expr, name string) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == name
 }
 
 func hasAny(node ast.Node, exprs []ast.Expr) bool {
