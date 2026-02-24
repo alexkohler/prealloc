@@ -1,6 +1,9 @@
 package test
 
-import "sort"
+import (
+	"bytes"
+	"sort"
+)
 
 func rangeZero() {
 	var x []int
@@ -178,6 +181,14 @@ func rangeMapFunc() {
 func rangeIntTypeConvert() {
 	var x []uint // want "Consider preallocating x with capacity 5$"
 	for i := range uint(5) {
+		x = append(x, i)
+	}
+}
+
+func rangeIntNoArgMethod() {
+	var buf bytes.Buffer
+	var x []int // want "Consider preallocating x with capacity buf\\.Len\\(\\)$"
+	for i := range buf.Len() {
 		x = append(x, i)
 	}
 }
