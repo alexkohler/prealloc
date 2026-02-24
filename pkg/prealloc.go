@@ -837,6 +837,11 @@ func hasCall(expr ast.Expr) bool {
 					// allow cheap pure built-in functions
 					return true
 				}
+			case *ast.SelectorExpr:
+				// allow argument-less methods
+				if len(call.Args) == 0 {
+					return true
+				}
 			}
 			found = true
 		}

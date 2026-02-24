@@ -1,5 +1,7 @@
 package test
 
+import "bytes"
+
 func forInfinite() {
 	var x []int
 	for {
@@ -222,6 +224,14 @@ func forDecBackwardsCondition() {
 func forTypeConvert() {
 	var x []uint // want "Consider preallocating x with capacity 5$"
 	for i := uint(0); i < uint(5); i++ {
+		x = append(x, i)
+	}
+}
+
+func forNoArgMethod() {
+	var buf bytes.Buffer
+	var x []int // want "Consider preallocating x with capacity buf\\.Len\\(\\)$"
+	for i := 0; i < buf.Len(); i++ {
 		x = append(x, i)
 	}
 }
