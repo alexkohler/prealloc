@@ -671,11 +671,11 @@ func (v *returnsVisitor) forLoopCount(stmt *ast.ForStmt) (ast.Expr, bool) {
 					reverse = s.Tok == token.SUB_ASSIGN
 				case token.ASSIGN:
 					if rhsBinary, ok := s.Rhs[i].(*ast.BinaryExpr); ok {
-						reverse = s.Tok == token.SUB
+						reverse = rhsBinary.Op == token.SUB
 						if rhsBinary.Op == token.ADD || reverse {
 							if isIdentName(rhsBinary.X, initIdent.Name) {
 								step = rhsBinary.Y
-							} else if isIdentName(rhsBinary.Y, initIdent.Name) {
+							} else if !reverse && isIdentName(rhsBinary.Y, initIdent.Name) {
 								step = rhsBinary.X
 							}
 						}
